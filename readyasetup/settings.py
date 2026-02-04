@@ -28,12 +28,15 @@ SECRET_KEY = 'django-insecure-vtu50awcg-ox*ndq&gs_de&a57z%tlvteefw5ahey@dt4u_8=a
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
+
 ALLOWED_HOSTS = [
-    "46.225.4.119",
+    "127.0.0.1",
+    "localhost",
+    "breneo.onrender.com",
+    "www.breneo.onrender.com",
 ]
 
-USE_X_FORWARDED_HOST = True
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "http")
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
 load_dotenv(os.path.join(BASE_DIR, '.env')) 
@@ -66,6 +69,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

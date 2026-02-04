@@ -5,3 +5,5 @@ PyPDF2
 requests
 elevenlabs
 psycopg
+gunicorn
+whitenoise
