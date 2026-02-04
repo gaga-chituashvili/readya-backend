@@ -32,8 +32,8 @@ DEBUG = False
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "breneo.onrender.com",
-    "www.breneo.onrender.com",
+    "readya-backend.onrender.com",
+    "www.readya-backend.onrender.com",
 ]
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
