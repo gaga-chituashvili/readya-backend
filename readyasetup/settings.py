@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import os
 from pathlib import Path
-
+from dotenv import load_dotenv
 
 
 
@@ -34,12 +34,15 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
 ]
 
-import os
-from dotenv import load_dotenv
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "http")
+
+
 load_dotenv(os.path.join(BASE_DIR, '.env')) 
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
