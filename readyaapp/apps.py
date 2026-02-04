@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class RedyaappConfig(AppConfig):
-    name = 'redyaapp'
+    name = 'readyaapp'
