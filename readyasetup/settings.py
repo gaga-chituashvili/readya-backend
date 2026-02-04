@@ -30,9 +30,11 @@ DEBUG = False
 
 ALLOWED_HOSTS = [
     "46.225.4.119",
+    "46.225.4.119:80",
     "localhost",
     "127.0.0.1",
 ]
+
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "http")
