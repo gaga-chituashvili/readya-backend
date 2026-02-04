@@ -26,9 +26,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-vtu50awcg-ox*ndq&gs_de&a57z%tlvteefw5ahey@dt4u_8=a'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["46.225.4.119"]
 
 import os
 from dotenv import load_dotenv
@@ -37,6 +37,8 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 
