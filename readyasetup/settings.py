@@ -171,6 +171,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 EMAIL_FROM = os.getenv("EMAIL_FROM")
 
+# Georgian (West Europe)
+AZURE_SPEECH_KEY_KA = os.getenv("AZURE_SPEECH_KEY_KA")
+AZURE_SPEECH_REGION_KA = os.getenv("AZURE_SPEECH_REGION_KA")
 
-AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
-AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION")
+
+# English (eastus)
+AZURE_SPEECH_KEY_EN = os.getenv("AZURE_SPEECH_KEY_EN")
+AZURE_SPEECH_REGION_EN = os.getenv("AZURE_SPEECH_REGION_EN")
+

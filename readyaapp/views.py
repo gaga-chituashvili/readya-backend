@@ -8,6 +8,7 @@ def home(request):
 
 
 from pathlib import Path
+from uuid import uuid4
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -34,7 +35,6 @@ class UploadPDFView(APIView):
         if not email:
             return Response({"error": "email is required"}, status=400)
 
-       
         doc = AudioDocument.objects.create(
             email=email,
             pdf_file=pdf,
@@ -42,40 +42,31 @@ class UploadPDFView(APIView):
         )
 
         try:
-            
             pdf_path = Path(doc.pdf_file.path)
 
-            
-            mp3_dir = pdf_path.parents[1] / "mp3"
-            mp3_dir.mkdir(parents=True, exist_ok=True)
-
-            
-            mp3_path = mp3_dir / f"{pdf_path.stem}.mp3"
-
-           
             text = extract_text_from_pdf(str(pdf_path))
             if not text.strip():
                 raise ValueError("No extractable text found in PDF")
 
-           
+            mp3_filename = f"{uuid4()}.mp3"
+            mp3_path = pdf_path.parent.parent / "mp3" / mp3_filename
+            mp3_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # 🔊 TTS
             text_to_mp3(text, str(mp3_path))
 
-            
-            doc.mp3_file.name = f"uploads/mp3/{mp3_path.name}"
+            # 💾 DB save
+            doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
             doc.status = "done"
             doc.save()
 
         except Exception as e:
-            
             doc.status = "failed"
             doc.error_message = str(e)
             doc.save()
 
             return Response(
-                {
-                    "error": "processing failed",
-                    "detail": str(e),
-                },
+                {"error": "processing failed", "detail": str(e)},
                 status=500,
             )
 
