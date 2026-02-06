@@ -7,3 +7,4 @@ elevenlabs
 psycopg
 gunicorn
 whitenoise
+azure-cognitiveservices-speech
