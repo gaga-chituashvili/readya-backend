@@ -18,7 +18,7 @@ from django.utils.decorators import method_decorator
 
 from .models import AudioDocument
 from .services.pdf_reader import extract_text_from_pdf
-from .services.elevenlabs import text_to_mp3
+from .services.azure import text_to_mp3
 
 
 @method_decorator(csrf_exempt, name="dispatch")
