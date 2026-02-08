@@ -2,6 +2,7 @@ Django
 djangorestframework
 python-dotenv
 PyPDF2
+python-docx
 requests
 elevenlabs
 psycopg
