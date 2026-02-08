@@ -1,11 +1,8 @@
 from django.urls import path
-from .views import UploadPDFView, home, stream_mp3
-from .views import UploadPDFView
-
+from .views import home, UploadDocumentView, stream_mp3
 
 urlpatterns = [
-     path('', home, name='home'),
-     path("api/upload-pdf/", UploadPDFView.as_view()),
-      path("audio/<uuid:doc_id>/", stream_mp3),
+    path('', home, name='home'),
+    path('upload/', UploadDocumentView.as_view(), name='upload_document'),
+    path('stream/<uuid:doc_id>/', stream_mp3, name='stream_mp3'),
 ]
-
