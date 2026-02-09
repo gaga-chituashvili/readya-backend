@@ -1,13 +1,10 @@
-"""
-Django settings for readyasetup project.
-"""
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-vtu50awcg-ox*ndq&gs_de&a57z%tlvteefw5ahey@dt4u_8=a'
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 DEBUG = False
 
