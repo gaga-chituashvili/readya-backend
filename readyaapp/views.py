@@ -19,7 +19,6 @@ from .services.docx_reader import extract_text_from_docx
 from .services.image_reader import extract_text_from_image
 from .services.azure import text_to_mp3
 from .services.email import send_email_with_mp3
-from django.conf import settings
 
 @method_decorator(csrf_exempt, name="dispatch")
 class UploadDocumentView(APIView):
@@ -67,8 +66,7 @@ class UploadDocumentView(APIView):
                 
                 # MP3 გენერაცია
                 mp3_filename = f"{uuid4()}.mp3"
-                mp3_dir = Path(settings.MEDIA_ROOT) / "uploads/mp3"
-
+                mp3_dir = Path("media/uploads/mp3")
                 mp3_dir.mkdir(parents=True, exist_ok=True)
                 mp3_path = mp3_dir / mp3_filename
                 
@@ -78,7 +76,7 @@ class UploadDocumentView(APIView):
                 doc.text_content = text
                 doc.status = "done"
                 doc.save()
-                
+
                 send_email_with_mp3(email, str(mp3_path))
                 
             except Exception as e:
@@ -118,7 +116,7 @@ class UploadDocumentView(APIView):
                     raise ValueError("Text exceeds 5000 characters limit")
                 
                 mp3_filename = f"{uuid4()}.mp3"
-                mp3_dir = Path(settings.MEDIA_ROOT) / "uploads/mp3"
+                mp3_dir = Path("media/uploads/mp3")
                 mp3_dir.mkdir(parents=True, exist_ok=True)
                 mp3_path = mp3_dir / mp3_filename
                 
@@ -128,8 +126,10 @@ class UploadDocumentView(APIView):
                 doc.status = "done"
                 doc.save()
 
-
-                send_email_with_mp3(email, str(mp3_path))
+                try:
+                    send_email_with_mp3(email, str(mp3_path))
+                except Exception as e:
+                    print("Email sending failed:", e)
 
                 
             except Exception as e:
@@ -191,7 +191,7 @@ class UploadDocumentView(APIView):
             doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
             doc.status = "done"
             doc.save()
-           
+
             send_email_with_mp3(email, str(mp3_path))
 
         except Exception as e:
