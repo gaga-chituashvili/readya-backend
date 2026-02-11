@@ -1,10 +1,14 @@
 Django
 djangorestframework
+python-dotenv
+PyPDF2
+python-docx
 requests
+elevenlabs
+psycopg2-binary
 gunicorn
 whitenoise
-psycopg2-binary
+django-cors-headers
 pytesseract
 Pillow
 dj-database-url
-django-cors-headers
