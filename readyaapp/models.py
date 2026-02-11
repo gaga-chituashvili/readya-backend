@@ -30,5 +30,15 @@ class AudioDocument(models.Model):
     error_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
+    def delete(self, *args, **kwargs):
+        if self.document_file:
+            self.document_file.delete(save=False)
+        if self.upload_image:
+            self.upload_image.delete(save=False)
+        if self.mp3_file:
+            self.mp3_file.delete(save=False)
+
+        super().delete(*args, **kwargs)
+
     def __str__(self):
         return f"{self.email} - {self.file_type} - {self.status}"
