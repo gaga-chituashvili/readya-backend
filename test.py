@@ -1,9 +1,6 @@
-from django.core.mail import send_mail
+from readyaapp.services.email import send_email_with_mp3
 
-send_mail(
-    subject="Local Test Email",
-    message="ეს არის ლოკალური ტესტი",
-    from_email=None,
-    recipient_list=["gagachituashvili7@gmail.com"],
-    fail_silently=False,
+send_email_with_mp3(
+    "gagachituashvili0@gmail.com",
+    "media/uploads/mp3/georgian_test_7KS8aw4.mp3"
 )
