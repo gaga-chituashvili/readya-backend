@@ -1,8 +1,17 @@
 FROM python:3.11-slim
 
-RUN apt-get update && \
-    apt-get install -y tesseract-ocr tesseract-ocr-kat && \
-    rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-kat \
+    libtesseract-dev \
+    libleptonica-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -11,4 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD gunicorn readyasetup.wsgi:application --bind 0.0.0.0:$PORT
+
+RUN python manage.py collectstatic --noinput || true
+
+CMD ["gunicorn", "readyasetup.wsgi:application", "--bind", "0.0.0.0:10000", "--timeout", "120"]
