@@ -10,3 +10,6 @@ gunicorn
 whitenoise
 azure-cognitiveservices-speech
 django-cors-headers
+pytesseract
+Pillow
+pytesseract

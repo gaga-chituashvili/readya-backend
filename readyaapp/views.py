@@ -16,6 +16,7 @@ from django.http import FileResponse, Http404
 from .models import AudioDocument
 from .services.pdf_reader import extract_text_from_pdf
 from .services.docx_reader import extract_text_from_docx
+from .services.image_reader import extract_text_from_image
 from .services.azure import text_to_mp3
 
 
@@ -27,15 +28,76 @@ class UploadDocumentView(APIView):
         file = request.FILES.get("file")
         email = request.data.get("email")
         text_content = request.data.get("text") 
+        upload_image = request.FILES.get("upload_image")
         
-       
-        if not file and not text_content:
-            return Response({"error": "file or text is required"}, status=400)
+        # თუ file არის, შევამოწმოთ რა ტიპის ფაილია
+        if file and not upload_image:
+            file_extension = file.name.lower().split(".")[-1]
+            
+            # თუ სურათის ფორმატია
+            if file_extension in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']:
+                upload_image = file
+                file = None
+        
+        # შემოწმება
+        if not file and not text_content and not upload_image:
+            return Response({"error": "file, text or image is required"}, status=400)
         
         if not email:
             return Response({"error": "email is required"}, status=400)
         
-       
+        # ======= სურათის დამუშავება =======
+        if upload_image:
+            doc = AudioDocument.objects.create(
+                email=email,
+                upload_image=upload_image,
+                file_type="image",
+                status="processing",
+            )
+            
+            try:
+                image_path = Path(doc.upload_image.path)
+                
+                # OCR - ტექსტის ამოღება სურათიდან
+                text = extract_text_from_image(str(image_path))
+                
+                if not text.strip():
+                    raise ValueError("No text found in image")
+                
+                # MP3 გენერაცია
+                mp3_filename = f"{uuid4()}.mp3"
+                mp3_dir = Path("media/uploads/mp3")
+                mp3_dir.mkdir(parents=True, exist_ok=True)
+                mp3_path = mp3_dir / mp3_filename
+                
+                text_to_mp3(text, str(mp3_path))
+                
+                doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
+                doc.text_content = text
+                doc.status = "done"
+                doc.save()
+                
+            except Exception as e:
+                doc.status = "failed"
+                doc.error_message = str(e)
+                doc.save()
+                return Response(
+                    {"error": "processing failed", "detail": str(e)},
+                    status=500,
+                )
+            
+            return Response(
+                {
+                    "id": str(doc.id),
+                    "status": doc.status,
+                    "file_type": doc.file_type,
+                    "mp3_url": doc.mp3_file.url,
+                    "extracted_text": text[:200] + "..." if len(text) > 200 else text,
+                },
+                status=201,
+            )
+        
+        # ======= ტექსტის დამუშავება =======
         if text_content and not file:
             doc = AudioDocument.objects.create(
                 email=email,
@@ -51,7 +113,6 @@ class UploadDocumentView(APIView):
                 if len(text_content) > 5000:
                     raise ValueError("Text exceeds 5000 characters limit")
                 
-               
                 mp3_filename = f"{uuid4()}.mp3"
                 mp3_dir = Path("media/uploads/mp3")
                 mp3_dir.mkdir(parents=True, exist_ok=True)
@@ -82,7 +143,7 @@ class UploadDocumentView(APIView):
                 status=201,
             )
         
-       
+        # ======= PDF/DOCX დამუშავება =======
         file_extension = file.name.lower().split(".")[-1]
         
         if file_extension == "pdf":
@@ -91,7 +152,7 @@ class UploadDocumentView(APIView):
             file_type = "docx"
         else:
             return Response(
-                {"error": f"Unsupported file type: {file_extension}. Only PDF and DOCX are supported."},
+                {"error": f"Unsupported file type: {file_extension}"},
                 status=400
             )
         

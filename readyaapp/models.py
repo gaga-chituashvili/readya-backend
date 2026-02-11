@@ -11,7 +11,8 @@ class AudioDocument(models.Model):
     FILE_TYPE_CHOICES = (
         ("pdf", "PDF"),
         ("docx", "Word Document"),
-         ("text", "Plain Text"), 
+        ("text", "Plain Text"), 
+        ("image", "Image"), 
     )
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -20,7 +21,9 @@ class AudioDocument(models.Model):
     document_file = models.FileField(upload_to="uploads/documents/", null=True, blank=True)
     file_type = models.CharField(max_length=10, choices=FILE_TYPE_CHOICES, default="pdf")
 
-    text_content = models.TextField(blank=True, null=True) 
+    text_content = models.TextField(blank=True, null=True)
+
+    upload_image = models.ImageField(upload_to="uploads/images/", null=True, blank=True) 
     
     mp3_file = models.FileField(upload_to="uploads/mp3/", null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="processing")
