@@ -18,7 +18,7 @@ from .services.pdf_reader import extract_text_from_pdf
 from .services.docx_reader import extract_text_from_docx
 from .services.image_reader import extract_text_from_image
 from .services.azure import text_to_mp3
-
+from .services.email import send_email_with_mp3
 
 @method_decorator(csrf_exempt, name="dispatch")
 class UploadDocumentView(APIView):
@@ -76,6 +76,11 @@ class UploadDocumentView(APIView):
                 doc.text_content = text
                 doc.status = "done"
                 doc.save()
+
+                try:
+                    send_email_with_mp3(email, doc.mp3_file.path)
+                except Exception as e:
+                    print("Email sending failed:", e)
                 
             except Exception as e:
                 doc.status = "failed"
@@ -123,6 +128,12 @@ class UploadDocumentView(APIView):
                 doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
                 doc.status = "done"
                 doc.save()
+
+                try:
+                    send_email_with_mp3(email, doc.mp3_file.path)
+                except Exception as e:
+                    print("Email sending failed:", e)
+
                 
             except Exception as e:
                 doc.status = "failed"
@@ -183,7 +194,12 @@ class UploadDocumentView(APIView):
             doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
             doc.status = "done"
             doc.save()
-            
+
+            try:
+                send_email_with_mp3(email, doc.mp3_file.path)
+            except Exception as e:
+                    print("Email sending failed:", e)
+
         except Exception as e:
             doc.status = "failed"
             doc.error_message = str(e)
