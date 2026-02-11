@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
-
-import dj_database_url
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,7 +22,7 @@ CSRF_TRUSTED_ORIGINS = [
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-
+load_dotenv(os.path.join(BASE_DIR, '.env')) 
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -109,15 +108,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'readyasetup.wsgi.application'
 
-
-
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
-        conn_max_age=600,
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME'),
+        'USER': os.environ.get('DB_USER'),
+        'PASSWORD': os.environ.get('DB_PASSWORD'),
+        'HOST': os.environ.get('DB_HOST'),
+        'PORT': os.environ.get('DB_PORT'),
+    }
 }
-
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -141,6 +141,8 @@ USE_TZ = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+# EMAIL_FROM = os.getenv("EMAIL_FROM")
 
 
 AZURE_SPEECH_KEY_KA = os.getenv("AZURE_SPEECH_KEY_KA")
