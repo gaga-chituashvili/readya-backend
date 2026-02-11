@@ -15,6 +15,13 @@ ALLOWED_HOSTS = [
     "www.readya-backend.onrender.com",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://readya-backend.onrender.com",
+    "https://www.readya-backend.onrender.com",
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 load_dotenv(os.path.join(BASE_DIR, '.env')) 
 
 MEDIA_URL = "/media/"
