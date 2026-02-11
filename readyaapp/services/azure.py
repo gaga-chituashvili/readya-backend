@@ -1,4 +1,4 @@
-import azure.cognitiveservices.speech as speechsdk
+import requests
 from django.conf import settings
 
 
@@ -20,28 +20,27 @@ def text_to_mp3(text: str, output_path: str):
         voice = "en-US-AriaNeural"
         lang = "en-US"
 
-    speech_config = speechsdk.SpeechConfig(subscription=key, region=region)
-    speech_config.speech_synthesis_voice_name = voice
-    speech_config.set_speech_synthesis_output_format(
-        speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3
-    )
+    url = f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1"
 
-    audio_config = speechsdk.audio.AudioOutputConfig(filename=output_path)
-
-    synthesizer = speechsdk.SpeechSynthesizer(
-        speech_config=speech_config,
-        audio_config=audio_config
-    )
+    headers = {
+        "Ocp-Apim-Subscription-Key": key,
+        "Content-Type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": "audio-16khz-32kbitrate-mono-mp3",
+        "User-Agent": "readya-app",
+    }
 
     ssml = f"""
     <speak version="1.0" xml:lang="{lang}">
-      <voice name="{voice}">
-        {text}
-      </voice>
+        <voice name="{voice}">
+            {text}
+        </voice>
     </speak>
     """
 
-    result = synthesizer.speak_ssml_async(ssml).get()
+    response = requests.post(url, headers=headers, data=ssml.encode("utf-8"))
 
-    if result.reason != speechsdk.ResultReason.SynthesizingAudioCompleted:
-        raise RuntimeError(result.cancellation_details.error_details)
+    if response.status_code != 200:
+        raise RuntimeError(f"Azure TTS failed: {response.text}")
+
+    with open(output_path, "wb") as f:
+        f.write(response.content)
