@@ -78,7 +78,7 @@ class UploadDocumentView(APIView):
                 doc.save()
 
                 try:
-                    send_email_with_mp3(email, doc.mp3_file.path)
+                    send_email_with_mp3(email, str(mp3_path))
                 except Exception as e:
                     print("Email sending failed:", e)
                 
@@ -130,7 +130,7 @@ class UploadDocumentView(APIView):
                 doc.save()
 
                 try:
-                    send_email_with_mp3(email, doc.mp3_file.path)
+                    send_email_with_mp3(email, str(mp3_path))
                 except Exception as e:
                     print("Email sending failed:", e)
 
@@ -196,7 +196,7 @@ class UploadDocumentView(APIView):
             doc.save()
 
             try:
-                send_email_with_mp3(email, doc.mp3_file.path)
+                send_email_with_mp3(email, str(mp3_path))
             except Exception as e:
                     print("Email sending failed:", e)
 
