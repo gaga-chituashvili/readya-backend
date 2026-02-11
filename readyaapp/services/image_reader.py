@@ -6,7 +6,7 @@ def extract_text_from_image(path: str) -> str:
     try:
         image = Image.open(path)
         
-        text = pytesseract.image_to_string(image, lang='kat+eng')
+        text = pytesseract.image_to_string(image, lang='kat')
         
         if not text.strip():
             raise ValueError("No text found in image")
