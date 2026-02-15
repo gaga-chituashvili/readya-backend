@@ -1,5 +1,5 @@
 
-# ReadyA 🚀
+# Readya 🚀
 
 ReadyA is a full-stack web application currently under active development.
 
