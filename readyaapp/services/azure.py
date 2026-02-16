@@ -44,3 +44,4 @@ def text_to_mp3(text: str, output_path: str):
 
     with open(output_path, "wb") as f:
         f.write(response.content)
+
