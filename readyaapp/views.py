@@ -225,3 +225,44 @@ def stream_mp3(request, doc_id):
         )
     except AudioDocument.DoesNotExist:
         raise Http404
+    
+
+
+
+
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from django.utils.decorators import method_decorator
+# from django.views.decorators.csrf import csrf_exempt
+
+# from .models import AudioDocument
+# from .services.keepz import create_payment
+
+
+# @method_decorator(csrf_exempt, name="dispatch")
+# class CreatePaymentView(APIView):
+
+#     def post(self, request):
+#         email = request.data.get("email")
+
+#         if not email:
+#             return Response({"error": "email is required"}, status=400)
+
+#         doc = AudioDocument.objects.create(
+#             email=email,
+#             status="pending_payment",
+#             payment_status="pending",
+#             payment_amount=5.00,
+#         )
+
+#         payment_data = create_payment(
+#             amount=int(doc.payment_amount * 100),
+#             email=email,
+#             order_id=str(doc.id),
+#             description="Readya Audio Generation Service"
+#         )
+
+#         return Response({
+#             "document_id": str(doc.id),
+#             "payment_url": payment_data.get("paymentUrl")
+#         }, status=201)

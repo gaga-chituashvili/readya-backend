@@ -1,20 +1,28 @@
 from django.db import models
 import uuid
 
+
 class AudioDocument(models.Model):
     STATUS_CHOICES = (
         ("processing", "Processing"),
         ("done", "Done"),
         ("failed", "Failed"),
+        ("pending_payment", "Pending Payment"), 
     )
-    
+
     FILE_TYPE_CHOICES = (
         ("pdf", "PDF"),
         ("docx", "Word Document"),
-        ("text", "Plain Text"), 
-        ("image", "Image"), 
+        ("text", "Plain Text"),
+        ("image", "Image"),
     )
-    
+
+    # PAYMENT_STATUS_CHOICES = (
+    #     ("pending", "Pending"),
+    #     ("paid", "Paid"),
+    #     ("failed", "Failed"),
+    # )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField()
 
@@ -22,14 +30,34 @@ class AudioDocument(models.Model):
     file_type = models.CharField(max_length=10, choices=FILE_TYPE_CHOICES, default="pdf")
 
     text_content = models.TextField(blank=True, null=True)
+    upload_image = models.ImageField(upload_to="uploads/images/", null=True, blank=True)
 
-    upload_image = models.ImageField(upload_to="uploads/images/", null=True, blank=True) 
-    
     mp3_file = models.FileField(upload_to="uploads/mp3/", null=True, blank=True)
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="processing")
+
+    # payment_status = models.CharField(
+    #     max_length=20,
+    #     choices=PAYMENT_STATUS_CHOICES,
+    #     default="pending"
+    # )
+
+    # payment_amount = models.DecimalField(
+    #     max_digits=10,
+    #     decimal_places=2,
+    #     null=True,
+    #     blank=True
+    # )
+
+    # payment_id = models.CharField(
+    #     max_length=255,
+    #     null=True,
+    #     blank=True
+    # )
+
     error_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def delete(self, *args, **kwargs):
         if self.document_file:
             self.document_file.delete(save=False)
@@ -37,7 +65,6 @@ class AudioDocument(models.Model):
             self.upload_image.delete(save=False)
         if self.mp3_file:
             self.mp3_file.delete(save=False)
-
         super().delete(*args, **kwargs)
 
     def __str__(self):
