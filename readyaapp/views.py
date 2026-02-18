@@ -17,7 +17,7 @@ from .models import AudioDocument
 from .services.pdf_reader import extract_text_from_pdf
 from .services.docx_reader import extract_text_from_docx
 from .services.image_reader import extract_text_from_image
-from .services.google_tts import text_to_mp3
+from .services.google_cts import text_to_mp3
 from .services.email import send_email_with_mp3
 
 @method_decorator(csrf_exempt, name="dispatch")
