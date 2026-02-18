@@ -6,3 +6,4 @@ media
 uploads
 .env
 .venv
+*.pem
