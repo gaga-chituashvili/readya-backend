@@ -17,7 +17,7 @@ from .models import AudioDocument
 from .services.pdf_reader import extract_text_from_pdf
 from .services.docx_reader import extract_text_from_docx
 from .services.image_reader import extract_text_from_image
-from .services.azure import text_to_mp3
+from .services.google_tts import text_to_mp3
 from .services.email import send_email_with_mp3
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -266,3 +266,197 @@ def stream_mp3(request, doc_id):
 #             "document_id": str(doc.id),
 #             "payment_url": payment_data.get("paymentUrl")
 #         }, status=201)
+
+
+
+
+
+
+
+# ======= Keepz API Views =======
+
+# class CreatePaymentView(APIView):
+
+#     def post(self, request):
+#         document_id = request.data.get("document_id")
+
+#         try:
+#             doc = AudioDocument.objects.get(id=document_id)
+#         except AudioDocument.DoesNotExist:
+#             return Response({"error": "Document not found"}, status=404)
+
+#         amount = 3
+
+#         payment_url = (
+#             f"https://gateway.keepz.me/checkout?"
+#             f"amount={amount}"
+#             f"&currency=GEL"
+#             f"&externalOrderId={doc.id}"
+#             f"&successUrl={settings.SITE_URL}/payment-success"
+#             f"&failUrl={settings.SITE_URL}/payment-failed"
+#         )
+
+#         doc.payment_amount = amount
+#         doc.save()
+
+#         return Response({"payment_url": payment_url})
+
+
+
+# import uuid
+# import requests
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from django.conf import settings
+# from .models import AudioDocument
+# from .services.keepz import generate_signature, encrypt_payload
+
+
+# class CreatePaymentView(APIView):
+
+#     def post(self, request):
+#         document_id = request.data.get("document_id")
+
+#         try:
+#             doc = AudioDocument.objects.get(id=document_id)
+#         except AudioDocument.DoesNotExist:
+#             return Response({"error": "Document not found"}, status=404)
+        
+#         print("Integrator ID:", settings.KEEPZ_INTEGRATOR_ID)
+
+#         payload = {
+#             "amount": 3,
+#             "currency": "GEL",
+#             "externalOrderId": str(doc.id),
+#             "successUrl": f"{settings.SITE_URL}/payment-success",
+#             "failUrl": f"{settings.SITE_URL}/payment-failed"
+#         }
+
+#         # 1️⃣ UUID
+#         identifier = str(uuid.uuid4())
+
+#         # 2️⃣ Encryption (Keepz public key)
+#         encrypted_data = encrypt_payload(payload)
+
+#         # 3️⃣ Body for Keepz
+#         body = {
+#             "identifier": identifier,
+#             "encryptedData": encrypted_data
+#         }
+
+#         response = requests.post(
+#             "https://gateway.keepz.me/ecommerce-service/api/integrator/order",
+#             json=body,
+#             headers={
+#                 "Content-Type": "application/json",
+#                 "X-Integrator-Id": settings.KEEPZ_INTEGRATOR_ID,
+#             }
+#         )
+
+#         data = response.json()
+
+#         return Response(data)
+
+
+# class VerifyPaymentView(APIView):
+
+#     def post(self, request):
+#         order_id = request.data.get("order_id")
+
+#         try:
+          
+#             doc = AudioDocument.objects.get(id=order_id)
+#         except AudioDocument.DoesNotExist:
+#             return Response(status=404)
+
+       
+#         doc.payment_status = "paid"
+#         doc.status = "processing"
+#         doc.save()
+
+#         try:
+#             if doc.file_type == "text":
+#                 text = doc.text_content
+
+#             elif doc.file_type == "image":
+#                 text = extract_text_from_image(doc.upload_image.path)
+
+#             elif doc.file_type == "pdf":
+#                 text = extract_text_from_pdf(doc.document_file.path)
+
+#             elif doc.file_type == "docx":
+#                 text = extract_text_from_docx(doc.document_file.path)
+
+#             mp3_filename = f"{uuid4()}.mp3"
+#             mp3_dir = Path("media/uploads/mp3")
+#             mp3_dir.mkdir(parents=True, exist_ok=True)
+#             mp3_path = mp3_dir / mp3_filename
+
+#             text_to_mp3(text, str(mp3_path))
+
+#             doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
+#             doc.status = "done"
+#             doc.save()
+
+#             send_email_with_mp3(doc.email, str(mp3_path))
+
+#         except Exception as e:
+#             doc.status = "failed"
+#             doc.error_message = str(e)
+#             doc.save()
+
+#         return Response({"message": "ok"})
+
+
+# from rest_framework.decorators import api_view
+# from rest_framework.response import Response
+# from .services.services import generate_voice_with_timestamps
+# from django.core.files import File
+
+# @api_view(["POST"])
+# def generate_voice(request, doc_id):
+
+#     try:
+#         doc = AudioDocument.objects.get(id=doc_id)
+#     except AudioDocument.DoesNotExist:
+#         return Response({"error": "Document not found"}, status=404)
+
+
+#     if doc.word_timestamps and doc.mp3_file:
+#         return Response({
+#             "stream_url": f"/stream/{doc.id}/",
+#             "words": doc.word_timestamps
+#         })
+
+
+#     if doc.file_type == "text":
+#         text = doc.text_content
+#     elif doc.file_type == "pdf":
+#         text = extract_text_from_pdf(doc.document_file.path)
+#     elif doc.file_type == "docx":
+#         text = extract_text_from_docx(doc.document_file.path)
+#     elif doc.file_type == "image":
+#         text = extract_text_from_image(doc.upload_image.path)
+#     else:
+#         return Response({"error": "Unsupported file type"}, status=400)
+
+#     data = generate_voice_with_timestamps(text)
+
+#     filename = data["audio_url"].split("/")[-1]
+#     temp_path = os.path.join(settings.MEDIA_ROOT, filename)
+
+
+#     with open(temp_path, "rb") as f:
+#         doc.mp3_file.save(filename, File(f), save=False)
+
+#     doc.word_timestamps = data["words"]
+#     doc.status = "done"
+#     doc.save()
+
+
+#     os.remove(temp_path)
+
+#     return Response({
+#         "stream_url": f"/stream/{doc.id}/",
+#         "words": doc.word_timestamps
+#     })

@@ -174,9 +174,21 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 
 
-
 KEEPZ_INTEGRATOR_ID = os.getenv("KEEPZ_INTEGRATOR_ID")
-KEEPZ_PUBLIC_KEY = os.getenv("KEEPZ_PUBLIC_KEY")
 
-SITE_URL = os.getenv("SITE_URL", "http://localhost:5173")
+KEEPZ_PRIVATE_KEY = os.getenv("KEEPZ_PRIVATE_KEY")
+if KEEPZ_PRIVATE_KEY:
+    KEEPZ_PRIVATE_KEY = KEEPZ_PRIVATE_KEY.replace("\\n", "\n")
+
+KEEPZ_PUBLIC_KEY = os.getenv("KEEPZ_PUBLIC_KEY")
+if KEEPZ_PUBLIC_KEY:
+    KEEPZ_PUBLIC_KEY = KEEPZ_PUBLIC_KEY.replace("\\n", "\n")
+
+SITE_URL = os.getenv("SITE_URL", "http://localhost:3000")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+
+
+
+
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
