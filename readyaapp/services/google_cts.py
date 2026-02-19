@@ -63,7 +63,7 @@ def text_to_mp3(text, output_path):
             "input": {
                 "ssml": f"""
                 <speak>
-                    <prosody rate="1.05" pitch="0%">
+                    <prosody rate="1" pitch="0%">
                         {escaped_text}
                     </prosody>
                 </speak>
