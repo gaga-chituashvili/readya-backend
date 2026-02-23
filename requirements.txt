@@ -16,3 +16,4 @@ azure-cognitiveservices-speech
 google-cloud-texttospeech
 google-generativeai
 drf-spectacular      
+pydub
