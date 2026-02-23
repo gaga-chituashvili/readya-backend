@@ -236,6 +236,71 @@ def stream_mp3(request, doc_id):
 
 
 
+@api_view(["POST"])
+def generate_voice(request, doc_id):
+
+    try:
+        doc = AudioDocument.objects.get(id=doc_id)
+    except AudioDocument.DoesNotExist:
+        return Response({"error": "Document not found"}, status=404)
+
+   
+    if doc.file_type == "text":
+        text = doc.text_content
+
+    elif doc.file_type == "pdf":
+        text = extract_text_from_pdf(doc.document_file.path)
+
+    elif doc.file_type == "docx":
+        text = extract_text_from_docx(doc.document_file.path)
+
+    elif doc.file_type == "image":
+        text = extract_text_from_image(doc.upload_image.path)
+
+    else:
+        return Response({"error": "Unsupported file type"}, status=400)
+
+    if not text or not text.strip():
+        return Response({"error": "Empty text extracted"}, status=400)
+
+    
+    if doc.mp3_file:
+        old_path = doc.mp3_file.path
+        doc.mp3_file.delete(save=False)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    
+    data = generate_voice_with_timestamps(text)
+
+    if not data or "audio_url" not in data:
+        return Response({"error": "Voice generation failed"}, status=500)
+
+    filename = data["audio_url"].split("/")[-1]
+    temp_path = os.path.join(settings.MEDIA_ROOT, filename)
+
+    if not os.path.exists(temp_path):
+        return Response({"error": "Generated file missing"}, status=500)
+
+  
+    with open(temp_path, "rb") as f:
+        doc.mp3_file.save(filename, File(f), save=False)
+
+    doc.word_timestamps = data.get("words", [])
+    doc.status = "done"
+    doc.save()
+
+ 
+    os.remove(temp_path)
+
+    return Response({
+        "stream_url": f"/stream/{doc.id}/",
+        "words": doc.word_timestamps
+    })
+
+
+
+
 
 # from rest_framework.views import APIView
 # from rest_framework.response import Response
@@ -417,64 +482,3 @@ def stream_mp3(request, doc_id):
 
 
 
-# @api_view(["POST"])
-# def generate_voice(request, doc_id):
-
-#     try:
-#         doc = AudioDocument.objects.get(id=doc_id)
-#     except AudioDocument.DoesNotExist:
-#         return Response({"error": "Document not found"}, status=404)
-
-   
-#     if doc.file_type == "text":
-#         text = doc.text_content
-
-#     elif doc.file_type == "pdf":
-#         text = extract_text_from_pdf(doc.document_file.path)
-
-#     elif doc.file_type == "docx":
-#         text = extract_text_from_docx(doc.document_file.path)
-
-#     elif doc.file_type == "image":
-#         text = extract_text_from_image(doc.upload_image.path)
-
-#     else:
-#         return Response({"error": "Unsupported file type"}, status=400)
-
-#     if not text or not text.strip():
-#         return Response({"error": "Empty text extracted"}, status=400)
-
-    
-#     if doc.mp3_file:
-#         old_path = doc.mp3_file.path
-#         doc.mp3_file.delete(save=False)
-#         if os.path.exists(old_path):
-#             os.remove(old_path)
-
-    
-#     data = generate_voice_with_timestamps(text)
-
-#     if not data or "audio_url" not in data:
-#         return Response({"error": "Voice generation failed"}, status=500)
-
-#     filename = data["audio_url"].split("/")[-1]
-#     temp_path = os.path.join(settings.MEDIA_ROOT, filename)
-
-#     if not os.path.exists(temp_path):
-#         return Response({"error": "Generated file missing"}, status=500)
-
-  
-#     with open(temp_path, "rb") as f:
-#         doc.mp3_file.save(filename, File(f), save=False)
-
-#     doc.word_timestamps = data.get("words", [])
-#     doc.status = "done"
-#     doc.save()
-
- 
-#     os.remove(temp_path)
-
-#     return Response({
-#         "stream_url": f"/stream/{doc.id}/",
-#         "words": doc.word_timestamps
-#     })

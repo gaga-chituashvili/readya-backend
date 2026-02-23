@@ -7,3 +7,4 @@ uploads
 .env
 .venv
 *.pem
+google-tts.json

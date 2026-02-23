@@ -34,6 +34,8 @@ class AudioDocument(models.Model):
 
     mp3_file = models.FileField(upload_to="uploads/mp3/", null=True, blank=True)
 
+    word_timestamps = models.JSONField(null=True, blank=True)
+
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="processing")
 
