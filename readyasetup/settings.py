@@ -198,7 +198,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
 
-GOOGLE_APPLICATION_CREDENTIALS = os.path.join(BASE_DIR, "google-cts.json")
+GOOGLE_APPLICATION_CREDENTIALS = os.path.join(BASE_DIR, "google-tts.json")
 
 
 # DRF Spectacular settings for API documentation
