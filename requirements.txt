@@ -14,4 +14,5 @@ Pillow
 dj-database-url
 azure-cognitiveservices-speech
 google-cloud-texttospeech
-google-generativeai      
+google-generativeai
+drf-spectacular      
