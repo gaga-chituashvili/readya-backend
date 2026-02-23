@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'corsheaders',  
     'rest_framework',
     'readyaapp',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -194,3 +195,20 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+
+
+GOOGLE_APPLICATION_CREDENTIALS = os.path.join(BASE_DIR, "google-tts.json")
+
+
+# DRF Spectacular settings for API documentation
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Readya API',
+    'DESCRIPTION': 'Text to Speech API',
+    'VERSION': '1.0.0',
+}
