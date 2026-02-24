@@ -5,12 +5,10 @@ from .keepz_crypto import encrypt_with_aes
 
 
 def get_keepz_base_url():
-    return "https://gateway.keepz.me/ecommerce-service"  
+    return "https://gateway.keepz.me"
 
 def create_payment(amount, email, order_id, description):
-    """Create payment in Keepz"""
     
-    # Payload
     payload = {
     "orderId": str(order_id),
     "amount": int(amount * 100),
