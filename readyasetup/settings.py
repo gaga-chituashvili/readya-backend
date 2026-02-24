@@ -188,6 +188,8 @@ if KEEPZ_PUBLIC_KEY:
 KEEPZ_INTEGRATOR_ID = os.getenv("KEEPZ_PROD_INTEGRATOR_ID")
 KEEPZ_BASE_URL = "https://gateway.keepz.me/ecommerce-service"
 
+KEEPZ_RECEIVER_ID = os.getenv("KEEPZ_RECEIVER_ID")
+
 SITE_URL = os.getenv("SITE_URL")
 BACKEND_URL = os.getenv("BACKEND_URL")
 

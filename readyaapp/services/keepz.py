@@ -9,16 +9,18 @@ def get_keepz_base_url():
 
 
 def create_payment(amount, email, order_id, description):
-
+    
+    print("Receiver ID:", settings.KEEPZ_RECEIVER_ID) 
     payload = {
-        "orderId": str(order_id),
-        "amount": int(amount * 100),
-        "currency": "GEL",
-        "description": description,
-        "customerEmail": email,
-        "successUrl": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
-        "failUrl": f"{settings.SITE_URL}/payment-failed?order_id={order_id}",
-        "callbackUrl": f"{settings.BACKEND_URL}/keepz/webhook/",
+    "orderId": str(order_id),
+    "receiverId": settings.KEEPZ_RECEIVER_ID, 
+    "amount": int(amount * 100),
+    "currency": "GEL",
+    "description": description,
+    "customerEmail": email,
+    "successUrl": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
+    "failUrl": f"{settings.SITE_URL}/payment-failed?order_id={order_id}",
+    "callbackUrl": f"{settings.BACKEND_URL}/keepz/webhook/",
     }
 
     print("📦 Payment Payload:", json.dumps(payload, indent=2))
