@@ -7,6 +7,7 @@ from .keepz_crypto import encrypt_with_aes
 def get_keepz_base_url():
     return "https://gateway.keepz.me/ecommerce-service"
 
+
 def create_payment(amount, email, order_id, description):
 
     payload = {
@@ -28,17 +29,17 @@ def create_payment(amount, email, order_id, description):
     )
 
     body = {
-    "identifier": str(order_id),
-    "encryptedData": encrypted.encrypted_data,
-    "encryptedKeys": encrypted.aes_properties,
-    "aes": True,
+        "identifier": str(order_id),
+        "encryptedData": encrypted.encrypted_data,
+        "encryptedKeys": encrypted.aes_properties,
+        "aes": True,
     }
 
     print("🔐 Encrypted Request:", json.dumps(body, indent=2))
 
-    try:
-        url = f"{get_keepz_base_url()}/api/integrator/order?integratorId={settings.KEEPZ_INTEGRATOR_ID}"
+    url = f"{get_keepz_base_url()}/api/integrator/order?integratorId={settings.KEEPZ_INTEGRATOR_ID}"
 
+    try:
         response = requests.post(
             url,
             json=body,
@@ -52,6 +53,6 @@ def create_payment(amount, email, order_id, description):
         response.raise_for_status()
         return response.json()
 
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Keepz API Error: {str(e)}")
-        raise Exception(f"Keepz API error: {str(e)}")
+    except requests.exceptions.RequestException:
+        print("❌ Keepz RAW Response:", response.text)
+        raise Exception(f"Keepz API error: {response.text}")
