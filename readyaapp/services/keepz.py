@@ -12,7 +12,7 @@ def create_payment(amount, email, order_id, description):
     payload = {
         "orderId": str(order_id),
         "amount": int(amount * 100),
-        "currencyCode": "GEL",
+        "currency": "GEL",
         "description": description,
         "customerEmail": email,
         "successUrl": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
