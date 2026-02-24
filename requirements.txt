@@ -17,3 +17,4 @@ google-cloud-texttospeech
 google-generativeai
 drf-spectacular      
 pydub
+cryptography

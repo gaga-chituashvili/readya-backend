@@ -1,8 +1,9 @@
+import os
+import base64
+from cryptography.hazmat.primitives import padding as sym_padding
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-import os
-import base64
 
 
 class EncryptedResponse:
@@ -12,8 +13,10 @@ class EncryptedResponse:
 
 
 def encrypt_using_public_key(data: str, public_key_string: str) -> str:
-    pem_key = f"-----BEGIN PUBLIC KEY-----\n{public_key_string}\n-----END PUBLIC KEY-----"
-    public_key = serialization.load_pem_public_key(pem_key.encode())
+    """RSA encryption with public key"""
+    public_key = serialization.load_pem_public_key(
+        public_key_string.encode()
+    )
 
     encrypted_data = public_key.encrypt(
         data.encode(),
@@ -28,26 +31,37 @@ def encrypt_using_public_key(data: str, public_key_string: str) -> str:
 
 
 def encrypt_with_aes(data: str, public_key: str) -> EncryptedResponse:
+    """AES + RSA hybrid encryption"""
+    
+    # Generate random AES key and IV
     aes_key = os.urandom(32)
     iv = os.urandom(16)
 
+    # AES encryption
     cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
     encryptor = cipher.encryptor()
 
-    pad_len = 16 - len(data) % 16
-    padded = data + chr(pad_len) * pad_len
+    # Padding
+    padder = sym_padding.PKCS7(128).padder()
+    padded_data = padder.update(data.encode()) + padder.finalize()
 
-    encrypted_data = encryptor.update(padded.encode()) + encryptor.finalize()
+    # Encrypt data
+    encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
 
+    # Combine AES key + IV
     aes_properties = (
         base64.b64encode(aes_key).decode()
         + "."
         + base64.b64encode(iv).decode()
     )
 
-    encrypted_aes_properties = encrypt_using_public_key(aes_properties, public_key)
+    # RSA encrypt the AES properties
+    encrypted_aes_properties = encrypt_using_public_key(
+        aes_properties,
+        public_key,
+    )
 
     return EncryptedResponse(
-        base64.b64encode(encrypted_data).decode(),
-        encrypted_aes_properties,
+        encrypted_data=base64.b64encode(encrypted_data).decode(),
+        aes_properties=encrypted_aes_properties,
     )

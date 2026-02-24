@@ -17,11 +17,11 @@ class AudioDocument(models.Model):
         ("image", "Image"),
     )
 
-    # PAYMENT_STATUS_CHOICES = (
-    #     ("pending", "Pending"),
-    #     ("paid", "Paid"),
-    #     ("failed", "Failed"),
-    # )
+    PAYMENT_STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("paid", "Paid"),
+        ("failed", "Failed"),
+    )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField()
@@ -37,26 +37,26 @@ class AudioDocument(models.Model):
     word_timestamps = models.JSONField(null=True, blank=True)
 
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="processing")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending_payment")
 
-    # payment_status = models.CharField(
-    #     max_length=20,
-    #     choices=PAYMENT_STATUS_CHOICES,
-    #     default="pending"
-    # )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default="pending"
+    )
 
-    # payment_amount = models.DecimalField(
-    #     max_digits=10,
-    #     decimal_places=2,
-    #     null=True,
-    #     blank=True
-    # )
+    payment_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
 
-    # payment_id = models.CharField(
-    #     max_length=255,
-    #     null=True,
-    #     blank=True
-    # )
+    payment_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
 
     error_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

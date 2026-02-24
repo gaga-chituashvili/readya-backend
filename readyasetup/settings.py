@@ -176,27 +176,25 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 
 
-
-KEEPZ_INTEGRATOR_ID = os.getenv("KEEPZ_INTEGRATOR_ID")
-
+# Keepz API credentials
 KEEPZ_PRIVATE_KEY = os.getenv("KEEPZ_PRIVATE_KEY")
 if KEEPZ_PRIVATE_KEY:
-    KEEPZ_PRIVATE_KEY = KEEPZ_PRIVATE_KEY.replace("\\n", "\n")
+    KEEPZ_PRIVATE_KEY = KEEPZ_PRIVATE_KEY.replace("\\n", "\n").strip()
 
-KEEPZ_PUBLIC_KEY = os.getenv("KEEPZ_PUBLIC_KEY")
+KEEPZ_PUBLIC_KEY = os.getenv("KEEPZ_PROD_PUBLIC_KEY")
 if KEEPZ_PUBLIC_KEY:
-    KEEPZ_PUBLIC_KEY = KEEPZ_PUBLIC_KEY.replace("\\n", "\n")
+    KEEPZ_PUBLIC_KEY = KEEPZ_PUBLIC_KEY.replace("\\n", "\n").strip()
 
-SITE_URL = os.getenv("SITE_URL", "http://localhost:3000")
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+KEEPZ_INTEGRATOR_ID = os.getenv("KEEPZ_PROD_INTEGRATOR_ID")
+KEEPZ_BASE_URL = "https://gateway.keepz.me/ecommerce-service"
+
+SITE_URL = os.getenv("SITE_URL")
+BACKEND_URL = os.getenv("BACKEND_URL")
 
 
-
-
+# GOOGLE API KEY for Text-to-Speech
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-
-
 
 GOOGLE_APPLICATION_CREDENTIALS = os.path.join(BASE_DIR, "google-tts.json")
 

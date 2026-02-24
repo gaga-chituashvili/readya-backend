@@ -302,183 +302,98 @@ def generate_voice(request, doc_id):
 
 
 
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from django.utils.decorators import method_decorator
-# from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.views.decorators.csrf import csrf_exempt
+from .models import AudioDocument
+from .services.keepz import create_payment
 
-# from .models import AudioDocument
-# from .services.keepz import create_payment
-
-
-# @method_decorator(csrf_exempt, name="dispatch")
-# class CreatePaymentView(APIView):
-
-#     def post(self, request):
-#         email = request.data.get("email")
-
-#         if not email:
-#             return Response({"error": "email is required"}, status=400)
-
-#         doc = AudioDocument.objects.create(
-#             email=email,
-#             status="pending_payment",
-#             payment_status="pending",
-#             payment_amount=5.00,
-#         )
-
-#         payment_data = create_payment(
-#             amount=int(doc.payment_amount * 100),
-#             email=email,
-#             order_id=str(doc.id),
-#             description="Readya Audio Generation Service"
-#         )
-
-#         return Response({
-#             "document_id": str(doc.id),
-#             "payment_url": payment_data.get("paymentUrl")
-#         }, status=201)
-
-
-
-
-
-
-
-# ======= Keepz API Views =======
-
-# class CreatePaymentView(APIView):
-
-#     def post(self, request):
-#         document_id = request.data.get("document_id")
-
-#         try:
-#             doc = AudioDocument.objects.get(id=document_id)
-#         except AudioDocument.DoesNotExist:
-#             return Response({"error": "Document not found"}, status=404)
-
-#         amount = 3
-
-#         payment_url = (
-#             f"https://gateway.keepz.me/checkout?"
-#             f"amount={amount}"
-#             f"&currency=GEL"
-#             f"&externalOrderId={doc.id}"
-#             f"&successUrl={settings.SITE_URL}/payment-success"
-#             f"&failUrl={settings.SITE_URL}/payment-failed"
-#         )
-
-#         doc.payment_amount = amount
-#         doc.save()
-
-#         return Response({"payment_url": payment_url})
-
-
-
-# import uuid
-# import requests
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from django.conf import settings
-# from .models import AudioDocument
-# from .services.keepz import generate_signature, encrypt_payload
-
-
-# class CreatePaymentView(APIView):
-
-#     def post(self, request):
-#         document_id = request.data.get("document_id")
-
-#         try:
-#             doc = AudioDocument.objects.get(id=document_id)
-#         except AudioDocument.DoesNotExist:
-#             return Response({"error": "Document not found"}, status=404)
+@csrf_exempt
+@api_view(['POST'])
+def create_payment_view(request):
+    
+    email = request.data.get('email')
+    
+    if not email:
+        return Response({'error': 'Email is required'}, status=400)
+    
+    doc = AudioDocument.objects.create(
+        email=email,
+        status='pending_payment',
+        payment_status='pending',
+        payment_amount=3.00,
+    )
+    
+    try:
+        payment_data = create_payment(
+            amount=3.00,
+            email=email,
+            order_id=str(doc.id),
+            description="Readya Audio Generation"
+        )
         
-#         print("Integrator ID:", settings.KEEPZ_INTEGRATOR_ID)
-
-#         payload = {
-#             "amount": 3,
-#             "currency": "GEL",
-#             "externalOrderId": str(doc.id),
-#             "successUrl": f"{settings.SITE_URL}/payment-success",
-#             "failUrl": f"{settings.SITE_URL}/payment-failed"
-#         }
-
-#         # 1️⃣ UUID
-#         identifier = str(uuid.uuid4())
-
-#         # 2️⃣ Encryption (Keepz public key)
-#         encrypted_data = encrypt_payload(payload)
-
-#         # 3️⃣ Body for Keepz
-#         body = {
-#             "identifier": identifier,
-#             "encryptedData": encrypted_data
-#         }
-
-#         response = requests.post(
-#             "https://gateway.keepz.me/ecommerce-service/api/integrator/order",
-#             json=body,
-#             headers={
-#                 "Content-Type": "application/json",
-#                 "X-Integrator-Id": settings.KEEPZ_INTEGRATOR_ID,
-#             }
-#         )
-
-#         data = response.json()
-
-#         return Response(data)
+        doc.payment_id = payment_data.get('orderId')
+        doc.save()
+        
+        return Response({
+            'document_id': str(doc.id),
+            'payment_url': payment_data.get('redirectUrl'),
+            'order_id': payment_data.get('orderId'),
+        }, status=201)
+        
+    except Exception as e:
+        doc.delete()
+        return Response({
+            'error': 'Payment creation failed',
+            'detail': str(e)
+        }, status=500)
 
 
-# class VerifyPaymentView(APIView):
-
-#     def post(self, request):
-#         order_id = request.data.get("order_id")
-
-#         try:
-          
-#             doc = AudioDocument.objects.get(id=order_id)
-#         except AudioDocument.DoesNotExist:
-#             return Response(status=404)
-
-       
-#         doc.payment_status = "paid"
-#         doc.status = "processing"
-#         doc.save()
-
-#         try:
-#             if doc.file_type == "text":
-#                 text = doc.text_content
-
-#             elif doc.file_type == "image":
-#                 text = extract_text_from_image(doc.upload_image.path)
-
-#             elif doc.file_type == "pdf":
-#                 text = extract_text_from_pdf(doc.document_file.path)
-
-#             elif doc.file_type == "docx":
-#                 text = extract_text_from_docx(doc.document_file.path)
-
-#             mp3_filename = f"{uuid4()}.mp3"
-#             mp3_dir = Path("media/uploads/mp3")
-#             mp3_dir.mkdir(parents=True, exist_ok=True)
-#             mp3_path = mp3_dir / mp3_filename
-
-#             text_to_mp3(text, str(mp3_path))
-
-#             doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
-#             doc.status = "done"
-#             doc.save()
-
-#             send_email_with_mp3(doc.email, str(mp3_path))
-
-#         except Exception as e:
-#             doc.status = "failed"
-#             doc.error_message = str(e)
-#             doc.save()
-
-#         return Response({"message": "ok"})
+@csrf_exempt
+@api_view(['POST'])
+def keepz_webhook(request):
+    """Step 2: Keepz webhook - payment confirmation"""
+    
+    payload = request.data
+    print("🔔 Webhook received:", payload)
+    
+    order_id = payload.get('orderId')
+    status = payload.get('status')
+    
+    try:
+        doc = AudioDocument.objects.get(id=order_id)
+        
+        if status == 'PAID':
+            doc.payment_status = 'paid'
+            doc.status = 'processing'
+            doc.save()
+            print(f"✅ Payment confirmed for {order_id}")
+            
+            return Response({'success': True}, status=200)
+        else:
+            doc.payment_status = 'failed'
+            doc.save()
+            print(f"❌ Payment failed for {order_id}")
+            
+            return Response({'success': False}, status=200)
+            
+    except AudioDocument.DoesNotExist:
+        return Response({'error': 'Document not found'}, status=404)
 
 
-
-
+@api_view(['GET'])
+def check_payment_status(request, document_id):
+    """Step 3: Check payment status"""
+    
+    try:
+        doc = AudioDocument.objects.get(id=document_id)
+        
+        return Response({
+            'document_id': str(doc.id),
+            'payment_status': doc.payment_status,
+            'status': doc.status,
+            'can_upload': doc.payment_status == 'paid',
+        }, status=200)
+        
+    except AudioDocument.DoesNotExist:
+        return Response({'error': 'Document not found'}, status=404)
