@@ -5,20 +5,20 @@ from .keepz_crypto import encrypt_with_aes
 
 
 def get_keepz_base_url():
-    return "https://gateway.keepz.me"
+    return "https://gateway.keepz.me/ecommerce-service"
 
 def create_payment(amount, email, order_id, description):
-    
+
     payload = {
-    "orderId": str(order_id),
-    "amount": int(amount * 100),
-    "currencyCode": "GEL",
-    "description": description,
-    "customerEmail": email,
-    "successUrl": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
-    "failUrl": f"{settings.SITE_URL}/payment-failed?order_id={order_id}",
-    "callbackUrl": f"{settings.BACKEND_URL}/keepz/webhook/",
-}
+        "orderId": str(order_id),
+        "amount": int(amount * 100),
+        "currencyCode": "GEL",
+        "description": description,
+        "customerEmail": email,
+        "successUrl": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
+        "failUrl": f"{settings.SITE_URL}/payment-failed?order_id={order_id}",
+        "callbackUrl": f"{settings.BACKEND_URL}/keepz/webhook/",
+    }
 
     print("📦 Payment Payload:", json.dumps(payload, indent=2))
 
@@ -28,7 +28,6 @@ def create_payment(amount, email, order_id, description):
     )
 
     body = {
-        "integratorId": settings.KEEPZ_INTEGRATOR_ID,
         "identifier": str(order_id),
         "encryptedData": encrypted.encrypted_data,
         "aesProperties": encrypted.aes_properties,
@@ -38,8 +37,10 @@ def create_payment(amount, email, order_id, description):
     print("🔐 Encrypted Request:", json.dumps(body, indent=2))
 
     try:
+        url = f"{get_keepz_base_url()}/api/integrator/order?integratorId={settings.KEEPZ_INTEGRATOR_ID}"
+
         response = requests.post(
-            f"{get_keepz_base_url()}/api/integrator/order",
+            url,
             json=body,
             headers={"Content-Type": "application/json"},
             timeout=20,
