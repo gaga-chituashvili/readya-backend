@@ -24,6 +24,8 @@ from django.core.files import File
 from django.conf import settings
 import os
 from .services.services import generate_voice_with_timestamps
+from .services.keepz import create_payment
+import logging
 
 @method_decorator(csrf_exempt, name="dispatch")
 class UploadDocumentView(APIView):
@@ -302,28 +304,28 @@ def generate_voice(request, doc_id):
 
 
 
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from django.views.decorators.csrf import csrf_exempt
-from .models import AudioDocument
-from .services.keepz import create_payment
+logger = logging.getLogger(__name__)
 
+
+# ===============================
+# STEP 1 — CREATE PAYMENT
+# ===============================
 @csrf_exempt
 @api_view(['POST'])
 def create_payment_view(request):
-    
+
     email = request.data.get('email')
-    
+
     if not email:
         return Response({'error': 'Email is required'}, status=400)
-    
+
     doc = AudioDocument.objects.create(
         email=email,
         status='pending_payment',
         payment_status='pending',
         payment_amount=3.00,
     )
-    
+
     try:
         payment_data = create_payment(
             amount=3.00,
@@ -331,69 +333,88 @@ def create_payment_view(request):
             order_id=str(doc.id),
             description="Readya Audio Generation"
         )
-        
+
+        logger.info(f"Keepz response: {payment_data}")
+
         doc.payment_id = payment_data.get('orderId')
         doc.save()
-        
+
         return Response({
             'document_id': str(doc.id),
             'payment_url': payment_data.get('redirectUrl'),
             'order_id': payment_data.get('orderId'),
         }, status=201)
-        
+
     except Exception as e:
-        doc.delete()
+        logger.error(f"Payment creation error: {str(e)}")
+
+        doc.payment_status = 'failed'
+        doc.save()
+
         return Response({
             'error': 'Payment creation failed',
             'detail': str(e)
         }, status=500)
 
 
+# ===============================
+# STEP 2 — KEEPZ WEBHOOK
+# ===============================
 @csrf_exempt
 @api_view(['POST'])
 def keepz_webhook(request):
-    """Step 2: Keepz webhook - payment confirmation"""
-    
+    """
+    Keepz payment confirmation callback
+    """
+
+    logger.info(f"🔔 Webhook raw data: {request.data}")
+
     payload = request.data
-    print("🔔 Webhook received:", payload)
-    
+
     order_id = payload.get('orderId')
     status = payload.get('status')
-    
+
+    if not order_id:
+        return Response({'error': 'orderId missing'}, status=400)
+
     try:
         doc = AudioDocument.objects.get(id=order_id)
-        
-        if status == 'PAID':
+
+        if status in ['PAID', 'SUCCESS', 'COMPLETED']:
             doc.payment_status = 'paid'
             doc.status = 'processing'
             doc.save()
-            print(f"✅ Payment confirmed for {order_id}")
-            
+
+            logger.info(f"✅ Payment confirmed for {order_id}")
             return Response({'success': True}, status=200)
+
         else:
             doc.payment_status = 'failed'
             doc.save()
-            print(f"❌ Payment failed for {order_id}")
-            
+
+            logger.warning(f"❌ Payment failed for {order_id}")
             return Response({'success': False}, status=200)
-            
+
     except AudioDocument.DoesNotExist:
+        logger.error(f"Document not found for webhook orderId: {order_id}")
         return Response({'error': 'Document not found'}, status=404)
 
 
+# ===============================
+# STEP 3 — CHECK PAYMENT STATUS
+# ===============================
 @api_view(['GET'])
 def check_payment_status(request, document_id):
-    """Step 3: Check payment status"""
-    
+
     try:
         doc = AudioDocument.objects.get(id=document_id)
-        
+
         return Response({
             'document_id': str(doc.id),
             'payment_status': doc.payment_status,
             'status': doc.status,
             'can_upload': doc.payment_status == 'paid',
         }, status=200)
-        
+
     except AudioDocument.DoesNotExist:
         return Response({'error': 'Document not found'}, status=404)

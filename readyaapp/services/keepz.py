@@ -28,10 +28,10 @@ def create_payment(amount, email, order_id, description):
     )
 
     body = {
-        "identifier": str(order_id),
-        "encryptedData": encrypted.encrypted_data,
-        "aesProperties": encrypted.aes_properties,
-        "aes": True,
+    "identifier": str(order_id),
+    "encryptedData": encrypted.encrypted_data,
+    "encryptedKeys": encrypted.aes_properties,
+    "aes": True,
     }
 
     print("🔐 Encrypted Request:", json.dumps(body, indent=2))
