@@ -12,15 +12,15 @@ def create_payment(amount, email, order_id, description):
     
     # Payload
     payload = {
-        "orderId": str(order_id),
-        "amount": float(amount),
-        "currencyCode": "GEL",
-        "description": description,
-        "customerEmail": email,
-        "successUrl": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
-        "failUrl": f"{settings.SITE_URL}/payment-failed?order_id={order_id}",
-        "callbackUrl": f"{settings.BACKEND_URL}/keepz/webhook/",
-    }
+    "orderId": str(order_id),
+    "amount": int(amount * 100),
+    "currencyCode": "GEL",
+    "description": description,
+    "customerEmail": email,
+    "successUrl": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
+    "failUrl": f"{settings.SITE_URL}/payment-failed?order_id={order_id}",
+    "callbackUrl": f"{settings.BACKEND_URL}/keepz/webhook/",
+}
 
     print("📦 Payment Payload:", json.dumps(payload, indent=2))
 
