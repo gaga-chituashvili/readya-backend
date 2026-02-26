@@ -1,29 +1,29 @@
 import json
 import requests
 from django.conf import settings
-from .keepz_crypto import encrypt_with_aes
+from .keepz_crypto import encrypt_with_aes, decrypt_with_aes
 
 
 def get_keepz_base_url():
     return "https://gateway.keepz.me/ecommerce-service"
 
 
+
 def create_payment(amount, email, order_id, description):
-    
-    print("Receiver ID:", settings.KEEPZ_RECEIVER_ID) 
+
     payload = {
-    "orderId": str(order_id),
-    "receiverId": settings.KEEPZ_RECEIVER_ID, 
-    "amount": int(amount * 100),
-    "currency": "GEL",
-    "description": description,
-    "customerEmail": email,
-    "successUrl": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
-    "failUrl": f"{settings.SITE_URL}/payment-failed?order_id={order_id}",
-    "callbackUrl": f"{settings.BACKEND_URL}/keepz/webhook/",
+        "amount": amount,
+        "receiverId": settings.KEEPZ_RECEIVER_ID,
+        "receiverType": "BRANCH",
+        "integratorId": settings.KEEPZ_INTEGRATOR_ID,
+        "integratorOrderId": str(order_id),
+        "currency": "GEL",
+        "directLinkProvider": "CREDO",
+        "successRedirectUri": f"{settings.SITE_URL}/payment-success?order_id={order_id}",
+        "failRedirectUri": f"{settings.SITE_URL}/payment-failed?order_id={order_id}",
+        "callbackUri": f"{settings.BACKEND_URL}/keepz/webhook/",
     }
 
-    print("📦 Payment Payload:", json.dumps(payload, indent=2))
 
     encrypted = encrypt_with_aes(
         json.dumps(payload, separators=(",", ":")),
@@ -31,13 +31,13 @@ def create_payment(amount, email, order_id, description):
     )
 
     body = {
-        "identifier": str(order_id),
+        "identifier": settings.KEEPZ_INTEGRATOR_ID,
         "encryptedData": encrypted.encrypted_data,
         "encryptedKeys": encrypted.aes_properties,
         "aes": True,
     }
 
-    print("🔐 Encrypted Request:", json.dumps(body, indent=2))
+    
 
     url = f"{get_keepz_base_url()}/api/integrator/order?integratorId={settings.KEEPZ_INTEGRATOR_ID}"
 
@@ -49,11 +49,24 @@ def create_payment(amount, email, order_id, description):
             timeout=20,
         )
 
-        print(f"📡 Response Status: {response.status_code}")
-        print(f"📄 Response Body: {response.text}")
 
         response.raise_for_status()
-        return response.json()
+
+        data = response.json()
+
+       
+        if data.get("encryptedData"):
+            decrypted_json = decrypt_with_aes(
+                data["encryptedKeys"],
+                data["encryptedData"],
+                settings.KEEPZ_PRIVATE_KEY,
+            )
+
+
+            return json.loads(decrypted_json)
+
+       
+        return data
 
     except requests.exceptions.RequestException:
         print("❌ Keepz RAW Response:", response.text)

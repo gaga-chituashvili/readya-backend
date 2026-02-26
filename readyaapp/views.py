@@ -307,9 +307,6 @@ def generate_voice(request, doc_id):
 logger = logging.getLogger(__name__)
 
 
-# ===============================
-# STEP 1 — CREATE PAYMENT
-# ===============================
 @csrf_exempt
 @api_view(['POST'])
 def create_payment_view(request):
@@ -323,26 +320,26 @@ def create_payment_view(request):
         email=email,
         status='pending_payment',
         payment_status='pending',
-        payment_amount=3.00,
+        payment_amount=0.1,
     )
 
     try:
         payment_data = create_payment(
-            amount=3.00,
+            amount=0.1,
             email=email,
             order_id=str(doc.id),
             description="Readya Audio Generation"
         )
 
-        logger.info(f"Keepz response: {payment_data}")
+        logger.info(f"🔓 Decrypted Keepz response: {payment_data}")
 
-        doc.payment_id = payment_data.get('orderId')
+        doc.payment_id = payment_data.get('integratorOrderId')
         doc.save()
 
         return Response({
             'document_id': str(doc.id),
-            'payment_url': payment_data.get('redirectUrl'),
-            'order_id': payment_data.get('orderId'),
+            'payment_url': payment_data.get('urlForQR'),
+            'order_id': payment_data.get('integratorOrderId'),
         }, status=201)
 
     except Exception as e:
@@ -356,22 +353,18 @@ def create_payment_view(request):
             'detail': str(e)
         }, status=500)
 
-
 # ===============================
 # STEP 2 — KEEPZ WEBHOOK
 # ===============================
 @csrf_exempt
 @api_view(['POST'])
 def keepz_webhook(request):
-    """
-    Keepz payment confirmation callback
-    """
 
     logger.info(f"🔔 Webhook raw data: {request.data}")
 
     payload = request.data
 
-    order_id = payload.get('orderId')
+    order_id = payload.get('integratorOrderId') or payload.get('orderId')
     status = payload.get('status')
 
     if not order_id:
