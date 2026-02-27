@@ -356,6 +356,10 @@ def create_payment_view(request):
 # ===============================
 # STEP 2 — KEEPZ WEBHOOK
 # ===============================
+from django.db import transaction
+from .services.payment_service import refund_payment
+
+
 @csrf_exempt
 @api_view(['POST'])
 def keepz_webhook(request):
@@ -366,6 +370,7 @@ def keepz_webhook(request):
 
     order_id = payload.get('integratorOrderId') or payload.get('orderId')
     status = payload.get('status')
+    payment_id = payload.get('paymentId') 
 
     if not order_id:
         return Response({'error': 'orderId missing'}, status=400)
@@ -374,9 +379,27 @@ def keepz_webhook(request):
         doc = AudioDocument.objects.get(id=order_id)
 
         if status in ['PAID', 'SUCCESS', 'COMPLETED']:
-            doc.payment_status = 'paid'
-            doc.status = 'processing'
-            doc.save()
+
+            try:
+                with transaction.atomic():
+
+                    doc.payment_status = 'paid'
+                    doc.status = 'processing'
+                    doc.save()
+
+                
+
+            except Exception as e:
+                logger.error(f"❌ Error after payment, triggering refund: {e}")
+
+                if payment_id:
+                    refund_payment(payment_id)
+
+                doc.payment_status = 'refunded'
+                doc.status = 'failed'
+                doc.save()
+
+                return Response({'refunded': True}, status=200)
 
             logger.info(f"✅ Payment confirmed for {order_id}")
             return Response({'success': True}, status=200)
@@ -401,7 +424,6 @@ def check_payment_status(request, document_id):
 
     try:
         doc = AudioDocument.objects.get(id=document_id)
-
         return Response({
             'document_id': str(doc.id),
             'payment_status': doc.payment_status,
