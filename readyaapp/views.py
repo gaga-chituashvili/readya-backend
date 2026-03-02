@@ -17,13 +17,13 @@ from .models import AudioDocument
 from .services.pdf_reader import extract_text_from_pdf
 from .services.docx_reader import extract_text_from_docx
 from .services.image_reader import extract_text_from_image
-from .services.google_cts import text_to_mp3
+from .services.cartesia_tts import text_to_mp3
 from .services.email import send_email_with_mp3
 from rest_framework.decorators import api_view
 from django.core.files import File
 from django.conf import settings
 import os
-from .services.services import generate_voice_with_timestamps
+from .services.markupread import generate_voice_with_timestamps
 from .services.keepz import create_payment
 import logging
 
@@ -37,16 +37,16 @@ class UploadDocumentView(APIView):
         text_content = request.data.get("text") 
         upload_image = request.FILES.get("upload_image")
         
-        # თუ file არის, შევამოწმოთ რა ტიპის ფაილია
+       
         if file and not upload_image:
             file_extension = file.name.lower().split(".")[-1]
             
-            # თუ სურათის ფორმატია
+            
             if file_extension in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']:
                 upload_image = file
                 file = None
         
-        # შემოწმება
+        
         if not file and not text_content and not upload_image:
             return Response({"error": "file, text or image is required"}, status=400)
         
