@@ -26,6 +26,7 @@ import os
 from .services.markupread import generate_voice_with_timestamps
 from .services.keepz import create_payment
 import logging
+from django.db import transaction
 
 @method_decorator(csrf_exempt, name="dispatch")
 class UploadDocumentView(APIView):
@@ -333,8 +334,6 @@ def create_payment_view(request):
 
         logger.info(f"🔓 Decrypted Keepz response: {payment_data}")
 
-        doc.payment_id = payment_data.get('integratorOrderId')
-        doc.save()
 
         return Response({
             'document_id': str(doc.id),
@@ -356,65 +355,61 @@ def create_payment_view(request):
 # ===============================
 # STEP 2 — KEEPZ WEBHOOK
 # ===============================
-from django.db import transaction
-from .services.payment_service import refund_payment
 
 
 @csrf_exempt
 @api_view(['POST'])
 def keepz_webhook(request):
 
-    logger.info(f"🔔 Webhook raw data: {request.data}")
+    logger.info(f"🔔 Keepz webhook payload: {request.data}")
 
     payload = request.data
 
-    order_id = payload.get('integratorOrderId') or payload.get('orderId')
-    status = payload.get('status')
-    payment_id = payload.get('paymentId') 
+    order_id = payload.get("integratorOrderId") or payload.get("orderId")
+    status = (payload.get("status") or "").upper()
+    amount = payload.get("amount") or payload.get("acquiringAmount")
 
     if not order_id:
-        return Response({'error': 'orderId missing'}, status=400)
+        logger.error("❌ orderId missing in webhook")
+        return Response({"error": "orderId missing"}, status=400)
 
     try:
         doc = AudioDocument.objects.get(id=order_id)
 
-        if status in ['PAID', 'SUCCESS', 'COMPLETED']:
+        if doc.payment_status == "paid":
+            return Response({"already_processed": True}, status=200)
 
-            try:
-                with transaction.atomic():
+        if status == "SUCCESS":
 
-                    doc.payment_status = 'paid'
-                    doc.status = 'processing'
-                    doc.save()
+            with transaction.atomic():
 
-                
+                doc.payment_status = "paid"
+                doc.status = "processing"
 
-            except Exception as e:
-                logger.error(f"❌ Error after payment, triggering refund: {e}")
+                if amount:
+                    doc.payment_amount = amount
 
-                if payment_id:
-                    refund_payment(payment_id)
-
-                doc.payment_status = 'refunded'
-                doc.status = 'failed'
                 doc.save()
 
-                return Response({'refunded': True}, status=200)
+            logger.info(f"✅ Payment confirmed for document {order_id}")
 
-            logger.info(f"✅ Payment confirmed for {order_id}")
-            return Response({'success': True}, status=200)
+            return Response({"success": True}, status=200)
 
         else:
-            doc.payment_status = 'failed'
+
+            doc.payment_status = "failed"
+            doc.status = "failed"
             doc.save()
 
-            logger.warning(f"❌ Payment failed for {order_id}")
-            return Response({'success': False}, status=200)
+            logger.warning(f"❌ Payment failed for document {order_id}")
+
+            return Response({"success": False}, status=200)
 
     except AudioDocument.DoesNotExist:
-        logger.error(f"Document not found for webhook orderId: {order_id}")
-        return Response({'error': 'Document not found'}, status=404)
 
+        logger.error(f"❌ Document not found for orderId: {order_id}")
+
+        return Response({"error": "Document not found"}, status=404)
 
 # ===============================
 # STEP 3 — CHECK PAYMENT STATUS
