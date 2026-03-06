@@ -1,3 +1,5 @@
+import email
+
 from django.http import HttpResponse
 
 def home(request):
@@ -30,6 +32,7 @@ from django.db import transaction
 import json
 from .services.keepz import decrypt_with_aes
 
+
 @method_decorator(csrf_exempt, name="dispatch")
 class UploadDocumentView(APIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -46,12 +49,21 @@ class UploadDocumentView(APIView):
         except AudioDocument.DoesNotExist:
             return Response({"error": "Document not found"}, status=404)
 
-        if payment_doc.payment_status != "paid":
+        email = request.data.get("email")
+
+        if not email:
+            return Response({"error": "email is required"}, status=400)
+
+        free_usage = AudioDocument.objects.filter(
+            email=email,
+            mp3_file__isnull=False
+        ).exclude(id=payment_doc.id).count()
+
+        if free_usage >= 1 and payment_doc.payment_status != "paid":
             return Response({"error": "payment required"}, status=402)
 
 
         file = request.FILES.get("file")
-        email = request.data.get("email")
         text_content = request.data.get("text") 
         upload_image = request.FILES.get("upload_image")
         
@@ -67,9 +79,6 @@ class UploadDocumentView(APIView):
         
         if not file and not text_content and not upload_image:
             return Response({"error": "file, text or image is required"}, status=400)
-        
-        if not email:
-            return Response({"error": "email is required"}, status=400)
         
 
         doc = payment_doc
@@ -241,6 +250,8 @@ class UploadDocumentView(APIView):
             status=201,
         )
 
+
+
 @api_view(["GET"])
 def stream_mp3(request, doc_id):
     try:
@@ -256,7 +267,6 @@ def stream_mp3(request, doc_id):
     
 
 
-
 @api_view(["POST"])
 def generate_voice(request, doc_id):
 
@@ -265,8 +275,15 @@ def generate_voice(request, doc_id):
     except AudioDocument.DoesNotExist:
         return Response({"error": "Document not found"}, status=404)
 
-    # ===== PAYMENT CHECK =====
-    if doc.payment_status != "paid":
+    # ===== FREE FIRST TRY CHECK =====
+    email = doc.email
+
+    free_usage = AudioDocument.objects.filter(
+        email=email,
+        mp3_file__isnull=False
+    ).exclude(id=doc.id).count()
+
+    if free_usage >= 1 and doc.payment_status != "paid":
         return Response(
             {"error": "payment required"},
             status=402
@@ -338,7 +355,6 @@ def generate_voice(request, doc_id):
         "stream_url": f"/stream/{doc.id}/",
         "words": doc.word_timestamps
     })
-
 
 
 
