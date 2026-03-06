@@ -275,7 +275,6 @@ def generate_voice(request, doc_id):
     except AudioDocument.DoesNotExist:
         return Response({"error": "Document not found"}, status=404)
 
-    # ===== FREE FIRST TRY CHECK =====
     email = doc.email
 
     free_usage = AudioDocument.objects.filter(
@@ -289,14 +288,14 @@ def generate_voice(request, doc_id):
             status=402
         )
 
-    # ===== FILE CHECK =====
+    
     if not doc.file_type:
         return Response(
             {"error": "No uploaded file or text found"},
             status=400
         )
 
-    # ===== TEXT EXTRACTION =====
+   
     if doc.file_type == "text":
         text = doc.text_content
 
@@ -318,18 +317,18 @@ def generate_voice(request, doc_id):
     else:
         return Response({"error": "Unsupported file type"}, status=400)
 
-    # ===== EMPTY TEXT CHECK =====
+   
     if not text or not text.strip():
         return Response({"error": "Empty text extracted"}, status=400)
 
-    # ===== DELETE OLD MP3 =====
+   
     if doc.mp3_file:
         old_path = doc.mp3_file.path
         doc.mp3_file.delete(save=False)
         if os.path.exists(old_path):
             os.remove(old_path)
 
-    # ===== GENERATE VOICE =====
+    
     data = generate_voice_with_timestamps(text)
 
     if not data or "audio_url" not in data:
@@ -341,7 +340,7 @@ def generate_voice(request, doc_id):
     if not os.path.exists(temp_path):
         return Response({"error": "Generated file missing"}, status=500)
 
-    # ===== SAVE MP3 =====
+    
     with open(temp_path, "rb") as f:
         doc.mp3_file.save(filename, File(f), save=False)
 
@@ -374,12 +373,12 @@ def create_payment_view(request):
         email=email,
         status='pending_payment',
         payment_status='pending',
-        payment_amount=0.1,
+        payment_amount=0.01,
     )
 
     try:
         payment_data = create_payment(
-            amount=0.1,
+            amount=0.01,
             email=email,
             order_id=str(doc.id),
             description="Readya Audio Generation"
