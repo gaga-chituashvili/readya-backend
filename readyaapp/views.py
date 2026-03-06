@@ -373,12 +373,12 @@ def create_payment_view(request):
         email=email,
         status='pending_payment',
         payment_status='pending',
-        payment_amount=0.01,
+        payment_amount=0.1,
     )
 
     try:
         payment_data = create_payment(
-            amount=0.01,
+            amount=0.1,
             email=email,
             order_id=str(doc.id),
             description="Readya Audio Generation"
