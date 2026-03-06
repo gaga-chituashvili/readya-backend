@@ -27,6 +27,8 @@ from .services.markupread import generate_voice_with_timestamps
 from .services.keepz import create_payment
 import logging
 from django.db import transaction
+import json
+from .services.keepz import decrypt_with_aes
 
 @method_decorator(csrf_exempt, name="dispatch")
 class UploadDocumentView(APIView):
@@ -356,15 +358,36 @@ def create_payment_view(request):
 # STEP 2 — KEEPZ WEBHOOK
 # ===============================
 
+logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
-@api_view(['POST'])
+@api_view(["POST"])
 def keepz_webhook(request):
 
-    logger.info(f"🔔 Keepz webhook payload: {request.data}")
+    logger.info(f"🔔 RAW Keepz webhook payload: {request.data}")
 
     payload = request.data
 
+
+    if payload.get("encryptedData"):
+
+        try:
+            decrypted_json = decrypt_with_aes(
+                payload["encryptedKeys"],
+                payload["encryptedData"],
+                settings.KEEPZ_PRIVATE_KEY,
+            )
+
+            payload = json.loads(decrypted_json)
+
+            logger.info(f"🔓 Decrypted webhook payload: {payload}")
+
+        except Exception as e:
+            logger.error(f"❌ Webhook decrypt failed: {str(e)}")
+            return Response({"error": "decrypt failed"}, status=400)
+
+   
     order_id = payload.get("integratorOrderId") or payload.get("orderId")
     status = (payload.get("status") or "").upper()
     amount = payload.get("amount") or payload.get("acquiringAmount")
@@ -373,14 +396,23 @@ def keepz_webhook(request):
         logger.error("❌ orderId missing in webhook")
         return Response({"error": "orderId missing"}, status=400)
 
+   
     try:
         doc = AudioDocument.objects.get(id=order_id)
 
-        if doc.payment_status == "paid":
-            return Response({"already_processed": True}, status=200)
+    except AudioDocument.DoesNotExist:
+        logger.error(f"❌ Document not found for orderId: {order_id}")
+        return Response({"error": "Document not found"}, status=404)
 
-        if status == "SUCCESS":
 
+    if doc.payment_status == "paid":
+        logger.info(f"⚠️ Webhook already processed for {order_id}")
+        return Response({"already_processed": True}, status=200)
+
+ 
+    if status == "SUCCESS":
+
+        try:
             with transaction.atomic():
 
                 doc.payment_status = "paid"
@@ -395,21 +427,20 @@ def keepz_webhook(request):
 
             return Response({"success": True}, status=200)
 
-        else:
+        except Exception as e:
+            logger.error(f"❌ DB update failed: {str(e)}")
+            return Response({"error": "database error"}, status=500)
 
-            doc.payment_status = "failed"
-            doc.status = "failed"
-            doc.save()
+    
+    else:
 
-            logger.warning(f"❌ Payment failed for document {order_id}")
+        doc.payment_status = "failed"
+        doc.status = "failed"
+        doc.save()
 
-            return Response({"success": False}, status=200)
+        logger.warning(f"❌ Payment failed for document {order_id}")
 
-    except AudioDocument.DoesNotExist:
-
-        logger.error(f"❌ Document not found for orderId: {order_id}")
-
-        return Response({"error": "Document not found"}, status=404)
+        return Response({"success": False}, status=200)
 
 # ===============================
 # STEP 3 — CHECK PAYMENT STATUS
