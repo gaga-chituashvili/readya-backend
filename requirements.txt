@@ -18,3 +18,4 @@ google-generativeai
 drf-spectacular      
 pydub
 cryptography
+openai
