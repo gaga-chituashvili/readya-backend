@@ -1,5 +1,5 @@
-import email
 
+import threading
 from django.http import HttpResponse
 
 def home(request):
@@ -31,6 +31,8 @@ import logging
 from django.db import transaction
 import json
 from .services.keepz import decrypt_with_aes
+from .services.openai_chat import chat_with_document
+
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -57,9 +59,9 @@ class UploadDocumentView(APIView):
         free_usage = AudioDocument.objects.filter(
             email=email,
             mp3_file__isnull=False
-        ).exclude(id=payment_doc.id).count()
+        ).exclude(id=payment_doc.id).exists()
 
-        if free_usage >= 1 and payment_doc.payment_status != "paid":
+        if free_usage and payment_doc.payment_status != "paid":
             return Response({"error": "payment required"}, status=402)
 
 
@@ -83,6 +85,7 @@ class UploadDocumentView(APIView):
 
         doc = payment_doc
         doc.email = email
+        doc.save(update_fields=["email"])
 
 
         # ======= IMAGE =======
@@ -103,7 +106,7 @@ class UploadDocumentView(APIView):
                 
                
                 mp3_filename = f"{uuid4()}.mp3"
-                mp3_dir = Path("media/uploads/mp3")
+                mp3_dir = Path(settings.MEDIA_ROOT) / "uploads/mp3"
                 mp3_dir.mkdir(parents=True, exist_ok=True)
                 mp3_path = mp3_dir / mp3_filename
                 
@@ -114,7 +117,11 @@ class UploadDocumentView(APIView):
                 doc.status = "done"
                 doc.save()
 
-                send_email_with_mp3(email, str(mp3_path))
+                threading.Thread(
+                target=send_email_with_mp3,
+                args=(email, str(mp3_path)),
+                daemon=True
+                ).start()
                 
             except Exception as e:
                 doc.status = "failed"
@@ -153,7 +160,7 @@ class UploadDocumentView(APIView):
                     raise ValueError("Text exceeds 5000 characters limit")
                 
                 mp3_filename = f"{uuid4()}.mp3"
-                mp3_dir = Path("media/uploads/mp3")
+                mp3_dir = Path(settings.MEDIA_ROOT) / "uploads/mp3"
                 mp3_dir.mkdir(parents=True, exist_ok=True)
                 mp3_path = mp3_dir / mp3_filename
                 
@@ -164,7 +171,12 @@ class UploadDocumentView(APIView):
                 doc.save()
 
                 try:
-                    send_email_with_mp3(email, str(mp3_path))
+                    threading.Thread(
+                        target=send_email_with_mp3,
+                        args=(email, str(mp3_path)),
+                        daemon=True
+                    ).start()
+
                 except Exception as e:
                     print("Email sending failed:", e)
 
@@ -220,7 +232,7 @@ class UploadDocumentView(APIView):
                 raise ValueError(f"No extractable text found in {file_type.upper()}")
             
             mp3_filename = f"{uuid4()}.mp3"
-            mp3_path = doc_path.parent.parent / "mp3" / mp3_filename
+            mp3_path = Path(settings.MEDIA_ROOT) / "uploads/mp3" / mp3_filename
             mp3_path.parent.mkdir(parents=True, exist_ok=True)
             
             text_to_mp3(text, str(mp3_path))
@@ -229,7 +241,11 @@ class UploadDocumentView(APIView):
             doc.status = "done"
             doc.save()
 
-            send_email_with_mp3(email, str(mp3_path))
+            threading.Thread(
+                target=send_email_with_mp3,
+                args=(email, str(mp3_path)),
+                daemon=True
+            ).start()
 
         except Exception as e:
             doc.status = "failed"
@@ -274,15 +290,21 @@ def generate_voice(request, doc_id):
         doc = AudioDocument.objects.get(id=doc_id)
     except AudioDocument.DoesNotExist:
         return Response({"error": "Document not found"}, status=404)
+    
+    if doc.mp3_file:
+        return Response({
+            "stream_url": f"/stream/{doc.id}/",
+            "words": doc.word_timestamps
+        })
 
     email = doc.email
 
     free_usage = AudioDocument.objects.filter(
         email=email,
         mp3_file__isnull=False
-    ).exclude(id=doc.id).count()
+    ).exclude(id=doc.id).exists()
 
-    if free_usage >= 1 and doc.payment_status != "paid":
+    if free_usage and doc.payment_status != "paid":
         return Response(
             {"error": "payment required"},
             status=402
@@ -318,15 +340,8 @@ def generate_voice(request, doc_id):
         return Response({"error": "Unsupported file type"}, status=400)
 
    
-    if not text or not text.strip():
+    if not text.strip():
         return Response({"error": "Empty text extracted"}, status=400)
-
-   
-    if doc.mp3_file:
-        old_path = doc.mp3_file.path
-        doc.mp3_file.delete(save=False)
-        if os.path.exists(old_path):
-            os.remove(old_path)
 
     
     data = generate_voice_with_timestamps(text)
@@ -509,3 +524,65 @@ def check_payment_status(request, document_id):
 
     except AudioDocument.DoesNotExist:
         return Response({'error': 'Document not found'}, status=404)
+    
+
+
+
+
+
+@api_view(['POST'])
+def chat_ai(request, doc_id=None):
+    try:
+        user_message = request.data.get('message')
+        conversation_history = request.data.get('history', [])
+
+        if not user_message:
+            return Response({'error': 'message is required'}, status=400)
+
+        document_text = None
+
+        if doc_id:
+            try:
+                doc = AudioDocument.objects.get(id=doc_id)
+
+                if doc.file_type == "pdf":
+                    if not doc.document_file:
+                        return Response({'error': 'PDF file missing'}, status=400)
+                    document_text = extract_text_from_pdf(doc.document_file.path)
+
+                elif doc.file_type == "docx":
+                    if not doc.document_file:
+                        return Response({'error': 'DOCX file missing'}, status=400)
+                    document_text = extract_text_from_docx(doc.document_file.path)
+
+                elif doc.file_type == "image":
+                    document_text = extract_text_from_image(doc.upload_image.path)
+
+                elif doc.file_type == "text":
+                    document_text = doc.text_content
+
+                else:
+                    return Response({'error': 'Unsupported file type'}, status=400)
+
+                if not document_text or not document_text.strip():
+                    return Response({'error': 'No text found in document'}, status=400)
+
+            except AudioDocument.DoesNotExist:
+                return Response({'error': 'Document not found'}, status=404)
+
+        ai_response = chat_with_document(
+            user_message=user_message,
+            document_text=document_text,
+            conversation_history=conversation_history
+        )
+
+        return Response({
+            "response": ai_response,
+            "message": user_message
+        }, status=200)
+
+    except Exception as e:
+        print(f"❌ Chat Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
