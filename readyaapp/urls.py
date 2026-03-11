@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import check_payment_status, create_payment_view, generate_voice, home, UploadDocumentView, keepz_webhook, stream_mp3
+from .views import    chat_ai, check_payment_status, create_payment_view, generate_voice, home, UploadDocumentView, keepz_webhook, stream_mp3
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
@@ -15,4 +15,7 @@ urlpatterns = [
     
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+
+    path('chat/<uuid:doc_id>/', chat_ai, name='chat_with_ai'),
+    path('chat/', chat_ai, name='chat_general_outid'),
 ]
