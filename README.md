@@ -70,3 +70,47 @@ New features, improvements, and optimizations are continuously being added.
 ├── test.py                    # Probably local test script
 └── uploads                    # Additional upload directory
 ```
+## Tech Stack
+
+### Backend
+
+- Django  
+- Django REST Framework  
+- python-dotenv  
+- psycopg2-binary  
+- gunicorn  
+- whitenoise  
+- django-cors-headers  
+- dj-database-url  
+
+### AI / APIs
+
+- OpenAI  
+- Google Generative AI  
+- ElevenLabs  
+- Azure Cognitive Services Speech  
+- Google Cloud Text-to-Speech  
+
+### File Processing
+
+- PyPDF2  
+- python-docx  
+- pytesseract  
+- Pillow  
+
+### Audio Processing
+
+- pydub  
+
+### Documentation
+
+- drf-spectacular  
+
+### Security
+
+- cryptography  
+
+### Utilities
+
+- requests
+
