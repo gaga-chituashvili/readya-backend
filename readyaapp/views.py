@@ -586,3 +586,8 @@ def chat_ai(request, doc_id=None):
         import traceback
         traceback.print_exc()
         return Response({'error': str(e)}, status=500)
+    
+
+
+
+

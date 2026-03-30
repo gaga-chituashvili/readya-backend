@@ -1,5 +1,5 @@
 from django.contrib import admin
-from readyaapp.models import AudioDocument
+from .models import AudioDocument
 
 
 

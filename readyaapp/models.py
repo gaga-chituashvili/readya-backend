@@ -79,3 +79,11 @@ class AudioDocument(models.Model):
 
 
 
+# Temporary user model for registration
+class User(models.Model):
+    email = models.EmailField(unique=True)
+    full_name = models.CharField(max_length=255)
+    password = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.email
