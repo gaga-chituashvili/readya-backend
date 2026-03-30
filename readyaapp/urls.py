@@ -1,10 +1,11 @@
 from django.urls import path
 from readyaapp.view.sign_view import LoginView, RegisterView
-from .views import   home, UploadDocumentView
+from .views import   home
+from readyaapp.view.upload_view import UploadDocumentView
 from readyaapp.view.streammp3_view import stream_mp3
 from readyaapp.view.payment_view import create_payment_view, check_payment_status, keepz_webhook
-from readyaapp.view.openai_view import chat_ai
 from readyaapp.view.generatevoice_view import generate_voice
+from readyaapp.view.openai_view import chat_ai
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
