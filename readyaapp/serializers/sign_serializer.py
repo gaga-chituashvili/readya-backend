@@ -1,10 +1,9 @@
 from rest_framework import serializers
-from django.contrib.auth.hashers import make_password
-from django.contrib.auth.models import User
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth import get_user_model
 
 from django.contrib.auth import authenticate
 
+User = get_user_model()
     
 class RegisterSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)
@@ -49,12 +48,15 @@ class LoginSerializer(serializers.Serializer):
 
     def validate(self, data):
         user = authenticate(
-            username=data["email"],  # email როგორც username
+            username=data["email"],
             password=data["password"]
         )
 
         if not user:
             raise serializers.ValidationError("Invalid credentials")
+
+        if not user.is_active:
+            raise serializers.ValidationError("User is inactive")
 
         data["user"] = user
         return data

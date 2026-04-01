@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework import generics
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from readyaapp.serializers.sign_serializer import LoginSerializer, RegisterSerializer  
 from rest_framework import generics, status
 from rest_framework_simplejwt.tokens import RefreshToken 
@@ -9,6 +9,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 
+User = get_user_model()
 
 #-------------- registration view -------------------
 
@@ -36,9 +37,9 @@ class LoginView(generics.GenericAPIView):
             "access": str(refresh.access_token),
             "refresh": str(refresh),
             "user": {
-                "id": str(user.id),
+                "id": user.id,
                 "email": user.email,
-                "full_name": user.get_full_name(),
+                "full_name": f"{user.first_name} {user.last_name}",
             }
         }, status=status.HTTP_200_OK)
     
@@ -74,7 +75,7 @@ class LogoutView(generics.GenericAPIView):
 
 
 
-
+#-------------- profile view -------------------
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
