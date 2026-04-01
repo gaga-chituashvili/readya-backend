@@ -19,3 +19,4 @@ drf-spectacular
 pydub
 cryptography
 openai
+djangorestframework-simplejwt
