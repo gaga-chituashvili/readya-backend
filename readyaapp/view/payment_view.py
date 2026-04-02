@@ -3,7 +3,8 @@ from django.views.decorators.csrf import csrf_exempt
 from readyaapp.models import AudioDocument, SubscriptionPlan
 from django.contrib.auth import get_user_model
 from readyaapp.services.keepz import create_payment
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
 import logging
 from django.db import transaction
@@ -19,22 +20,26 @@ logger = logging.getLogger(__name__)
 # ===============================
 # STEP 1 — CREATE PAYMENT
 # ===============================
+
+
 @csrf_exempt
 @api_view(['POST'])
+@permission_classes([IsAuthenticated]) 
 def create_payment_view(request):
 
-    email = request.data.get('email')
+    user = request.user 
+    email = user.email
+
     plan_id = request.data.get('plan_id')
 
-    if not email or not plan_id:
-        return Response({'error': 'email and plan_id required'}, status=400)
+    if not plan_id:
+        return Response({'error': 'plan_id required'}, status=400)
 
     try:
         plan = SubscriptionPlan.objects.get(id=plan_id)
     except SubscriptionPlan.DoesNotExist:
         return Response({'error': 'Plan not found'}, status=404)
 
-   
     doc = AudioDocument.objects.create(
         email=email,
         status='pending_payment',
@@ -44,8 +49,8 @@ def create_payment_view(request):
     )
 
     payment_data = create_payment(
-        amount=str(plan.price),  # 🔥 safer ვიდრე float
-        email=email,
+        amount=str(plan.price), 
+        email=email, 
         order_id=str(doc.id),
         description=f"{plan.name} subscription"
     )
@@ -55,7 +60,6 @@ def create_payment_view(request):
         'payment_url': payment_data.get('urlForQR'),
         'order_id': payment_data.get('integratorOrderId'),
     }, status=201)
-
 
 # ===============================
 # STEP 2 — KEEPZ WEBHOOK
