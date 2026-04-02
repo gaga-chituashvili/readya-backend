@@ -80,6 +80,12 @@ class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        full_name = " ".join(filter(None, [
+            request.user.first_name,
+            request.user.last_name
+        ]))
+
         return Response({
-            "email": request.user.email
+            "email": request.user.email,
+            "full_name": full_name
         })

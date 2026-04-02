@@ -1,5 +1,5 @@
 from django.urls import path
-from readyaapp.view.sign_view import LoginView, LogoutView, RegisterView
+from readyaapp.view.sign_view import LoginView, LogoutView, ProfileView, RegisterView
 from .views import   home
 from readyaapp.view.upload_view import UploadDocumentView
 from readyaapp.view.streammp3_view import stream_mp3
@@ -30,5 +30,6 @@ urlpatterns = [
     # Authentication endpoints
     path("register/", RegisterView.as_view(), name="register"),
     path("login/", LoginView.as_view(), name="login"),
+    path("profile/", ProfileView.as_view(), name="profile"),
     path("logout/", LogoutView.as_view(), name="logout"),
 ]
