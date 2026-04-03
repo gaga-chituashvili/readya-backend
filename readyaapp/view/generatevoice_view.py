@@ -1,6 +1,7 @@
 
 import os
 from django.core.files import File
+from requests import request
 from rest_framework.response import Response
 from readyaapp.services.markupread import generate_voice_with_timestamps
 from readyaapp.models import AudioDocument
@@ -14,6 +15,9 @@ from django.conf import settings
 
 @api_view(["POST"])
 def generate_voice(request, doc_id):
+
+    speed = float(request.data.get("speed", 0.92))
+    voice_id = request.data.get("voice_id")
 
     try:
         doc = AudioDocument.objects.get(id=doc_id)
@@ -72,8 +76,9 @@ def generate_voice(request, doc_id):
     if not text.strip():
         return Response({"error": "Empty text extracted"}, status=400)
 
+
+    data = generate_voice_with_timestamps(text, speed=speed, voice_id=voice_id)
     
-    data = generate_voice_with_timestamps(text)
 
     if not data or "audio_url" not in data:
         return Response({"error": "Voice generation failed"}, status=500)

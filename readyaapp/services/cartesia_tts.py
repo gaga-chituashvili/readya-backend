@@ -16,7 +16,7 @@ def split_long_sentences(text, max_length=400):
     return chunks
 
 
-def text_to_mp3(text, output_path):
+def text_to_mp3(text, output_path, speed=0.92, voice_id=None):
     api_key = os.getenv("CARTESIA_API_KEY")
 
     if not api_key:
@@ -24,7 +24,8 @@ def text_to_mp3(text, output_path):
 
     clean_text = " ".join(text.split())
 
-    voice_id = "95d51f79-c397-46f9-b49a-23763d3eaa2d"  
+    DEFAULT_VOICE_ID = "95d51f79-c397-46f9-b49a-23763d3eaa2d"
+    voice_id = voice_id or DEFAULT_VOICE_ID
 
     url = "https://api.cartesia.ai/tts/bytes"
     chunks = split_long_sentences(clean_text)
@@ -49,7 +50,7 @@ def text_to_mp3(text, output_path):
                 "sample_rate": 44100
             },
             "generation_config": {
-                "speed": 0.92,  
+                "speed": speed,  
                 "volume": 1
             }
         }

@@ -22,6 +22,9 @@ class UploadDocumentView(APIView):
     
     def post(self, request):
 
+        speed = float(request.data.get("speed", 0.92))
+        voice_id = request.data.get("voice_id")
+
         document_id = request.data.get("document_id")
 
         if not document_id:
@@ -91,7 +94,12 @@ class UploadDocumentView(APIView):
                 mp3_dir.mkdir(parents=True, exist_ok=True)
                 mp3_path = mp3_dir / mp3_filename
                 
-                text_to_mp3(text, str(mp3_path))
+                text_to_mp3(
+                    text,
+                    str(mp3_path),
+                    speed=speed,
+                    voice_id=voice_id
+                )
                 
                 doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
                 doc.text_content = text
@@ -145,7 +153,12 @@ class UploadDocumentView(APIView):
                 mp3_dir.mkdir(parents=True, exist_ok=True)
                 mp3_path = mp3_dir / mp3_filename
                 
-                text_to_mp3(text_content, str(mp3_path))
+                text_to_mp3(
+                    text_content,
+                    str(mp3_path),
+                    speed=speed,
+                    voice_id=voice_id
+                )
                 
                 doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
                 doc.status = "done"
@@ -216,7 +229,12 @@ class UploadDocumentView(APIView):
             mp3_path = Path(settings.MEDIA_ROOT) / "uploads/mp3" / mp3_filename
             mp3_path.parent.mkdir(parents=True, exist_ok=True)
             
-            text_to_mp3(text, str(mp3_path))
+            text_to_mp3(
+                text,
+                str(mp3_path),
+                speed=speed,
+                voice_id=voice_id
+            )
             
             doc.mp3_file.name = f"uploads/mp3/{mp3_filename}"
             doc.status = "done"
