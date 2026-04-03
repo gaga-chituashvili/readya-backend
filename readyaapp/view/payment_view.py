@@ -109,14 +109,14 @@ def keepz_webhook(request):
         try:
             with transaction.atomic():
 
-                # ✅ payment update
+              
                 doc.payment_status = "paid"
                 doc.status = "processing"
 
                 if amount:
                     doc.payment_amount = amount
 
-                # 🔥 subscription activation
+                
                 try:
                     user = User.objects.get(email=doc.email)
                     plan = doc.plan
