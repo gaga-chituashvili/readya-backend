@@ -74,6 +74,8 @@ class UploadDocumentView(APIView):
         doc.email = email
         doc.save(update_fields=["email"])
 
+        player_url = f"{settings.FRONTEND_URL}/player/{doc.id}"
+
 
         # ======= IMAGE =======
         if upload_image:
@@ -111,7 +113,7 @@ class UploadDocumentView(APIView):
 
                 threading.Thread(
                 target=send_email_with_mp3,
-                args=(email, str(mp3_path)),
+                args=(email, str(mp3_path), player_url),
                 daemon=True
                 ).start()
                 
@@ -170,7 +172,7 @@ class UploadDocumentView(APIView):
                 try:
                     threading.Thread(
                         target=send_email_with_mp3,
-                        args=(email, str(mp3_path)),
+                        args=(email, str(mp3_path), player_url),
                         daemon=True
                     ).start()
 
@@ -245,7 +247,7 @@ class UploadDocumentView(APIView):
 
             threading.Thread(
                 target=send_email_with_mp3,
-                args=(email, str(mp3_path)),
+                args=(email, str(mp3_path), player_url),
                 daemon=True
             ).start()
 
