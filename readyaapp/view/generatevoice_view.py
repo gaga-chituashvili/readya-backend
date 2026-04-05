@@ -14,6 +14,7 @@ from rest_framework.decorators import api_view
 from django.conf import settings
 
 
+
 @api_view(["POST"])
 def generate_voice(request, doc_id):
 
@@ -79,6 +80,8 @@ def generate_voice(request, doc_id):
 
 
     data = generate_voice_with_timestamps(text)
+    
+    
 
    
     
