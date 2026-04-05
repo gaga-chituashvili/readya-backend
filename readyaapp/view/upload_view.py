@@ -29,9 +29,12 @@ class UploadDocumentView(APIView):
 
         if not document_id:
             return Response({"error": "document_id is required"}, status=400)
-
+  
         try:
-            payment_doc = AudioDocument.objects.get(id=document_id)
+            payment_doc, created = AudioDocument.objects.get_or_create(
+                id=document_id,
+                defaults={"email": request.data.get("email")}
+            )
         except AudioDocument.DoesNotExist:
             return Response({"error": "Document not found"}, status=404)
 
@@ -40,13 +43,13 @@ class UploadDocumentView(APIView):
         if not email:
             return Response({"error": "email is required"}, status=400)
 
-        free_usage = AudioDocument.objects.filter(
-            email=email,
-            mp3_file__isnull=False
-        ).exclude(id=payment_doc.id).exists()
+        # free_usage = AudioDocument.objects.filter(
+        #     email=email,
+        #     mp3_file__isnull=False
+        # ).exclude(id=payment_doc.id).exists()
 
-        if free_usage and payment_doc.payment_status != "paid":
-            return Response({"error": "payment required"}, status=402)
+        # if free_usage and payment_doc.payment_status != "paid":
+        #     return Response({"error": "payment required"}, status=402)
 
 
         file = request.FILES.get("file")

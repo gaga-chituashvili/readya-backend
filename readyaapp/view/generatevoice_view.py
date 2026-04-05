@@ -1,5 +1,6 @@
 
 import os
+from annotated_types import doc
 from django.core.files import File
 from requests import request
 from rest_framework.response import Response
@@ -16,32 +17,32 @@ from django.conf import settings
 @api_view(["POST"])
 def generate_voice(request, doc_id):
 
-    speed = float(request.data.get("speed", 0.92))
-    voice_id = request.data.get("voice_id")
+    # speed = float(request.data.get("speed", 0.92))
+    # voice_id = request.data.get("voice_id")
 
     try:
-        doc = AudioDocument.objects.get(id=doc_id)
+        doc, _ = AudioDocument.objects.get_or_create(id=doc_id)
     except AudioDocument.DoesNotExist:
         return Response({"error": "Document not found"}, status=404)
     
-    if doc.mp3_file:
-        return Response({
-            "stream_url": f"/stream/{doc.id}/",
-            "words": doc.word_timestamps
-        })
-
+    if doc.mp3_file and doc.word_timestamps:
+         return Response({
+         "stream_url": f"/stream/{doc.id}/",
+         "words": doc.word_timestamps or []
+    })
+   
     email = doc.email
 
-    free_usage = AudioDocument.objects.filter(
-        email=email,
-        mp3_file__isnull=False
-    ).exclude(id=doc.id).exists()
+    # free_usage = AudioDocument.objects.filter(
+    #     email=email,
+    #     mp3_file__isnull=False
+    # ).exclude(id=doc.id).exists()
 
-    if free_usage and doc.payment_status != "paid":
-        return Response(
-            {"error": "payment required"},
-            status=402
-        )
+    # if free_usage and doc.payment_status != "paid":
+    #     return Response(
+    #         {"error": "payment required"},
+    #         status=402
+    #     )
 
     
     if not doc.file_type:
@@ -77,7 +78,9 @@ def generate_voice(request, doc_id):
         return Response({"error": "Empty text extracted"}, status=400)
 
 
-    data = generate_voice_with_timestamps(text, speed=speed, voice_id=voice_id)
+    data = generate_voice_with_timestamps(text)
+
+   
     
 
     if not data or "audio_url" not in data:
@@ -93,7 +96,18 @@ def generate_voice(request, doc_id):
     with open(temp_path, "rb") as f:
         doc.mp3_file.save(filename, File(f), save=False)
 
-    doc.word_timestamps = data.get("words", [])
+    words = data.get("words")
+    if not words:
+         words = []
+         time = 0
+         for word in text.split():
+             words.append({
+                 "word": word,
+                 "start": time,
+                 "end": time + 0.4
+             })
+             time += 0.5 
+    doc.word_timestamps = words
     doc.status = "done"
     doc.save()
 
