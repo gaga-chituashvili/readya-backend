@@ -1,6 +1,25 @@
 from django.db import models
 import uuid
 import os
+from django.utils import timezone
+from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
+
+# subscription plan model
+class SubscriptionPlan(models.Model):
+    name = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    duration_days = models.IntegerField()
+    
+
+    def __str__(self):
+        return f"{self.name} - {self.price}₾"
+    
+
+    
+
+
+# audio document model
 
 class AudioDocument(models.Model):
     STATUS_CHOICES = (
@@ -58,6 +77,16 @@ class AudioDocument(models.Model):
         blank=True
     )
 
+    plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents"
+    )
+
+
+
     error_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -74,8 +103,21 @@ class AudioDocument(models.Model):
         super().delete(*args, **kwargs)
 
 
+
     def __str__(self):
         return f"{self.email} - {self.file_type} - {self.status}"
+    
+   
+
+# Temporary user model for registration
 
 
 
+
+class User(AbstractUser):
+    subscription_end = models.DateTimeField(null=True, blank=True)
+
+    def has_active_subscription(self):
+        if not self.subscription_end:
+            return False
+        return self.subscription_end > timezone.now()

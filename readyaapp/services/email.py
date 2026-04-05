@@ -1,10 +1,17 @@
 from django.core.mail import EmailMessage
 from django.conf import settings
 
-def send_email_with_mp3(to_email: str, mp3_path: str):
+def send_email_with_mp3(to_email: str, mp3_path: str, player_url: str):
     email = EmailMessage(
         subject="🎧 Your audio is ready — Readya",
-        body="PDF successfully converted to audio file — readya.me",
+        body=f"""
+PDF successfully converted to audio file 🎉
+
+👉 Listen with highlighted reading:
+{player_url}
+
+MP3 is attached below.
+""",
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[to_email],
     )
@@ -13,6 +20,3 @@ def send_email_with_mp3(to_email: str, mp3_path: str):
     email.send(fail_silently=False)
 
     return {"status": "sent"}
-
-
-

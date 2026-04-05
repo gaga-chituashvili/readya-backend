@@ -18,3 +18,5 @@ google-generativeai
 drf-spectacular      
 pydub
 cryptography
+openai
+djangorestframework-simplejwt
