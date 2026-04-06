@@ -207,3 +207,28 @@ def google_auth(request):
 
     except Exception:
         return Response({"error": "Invalid Google token"}, status=400)
+    
+
+
+    #-------------- password reset view -------------------
+
+class PasswordResetView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+
+        if not email:
+            return Response({"error": "email is required"}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+
+           
+
+        except User.DoesNotExist:
+            pass  
+
+        return Response({
+            "detail": "If this email exists, reset instructions were sent"
+        })
