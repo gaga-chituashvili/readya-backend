@@ -34,16 +34,16 @@ class RegisterView(generics.CreateAPIView):
             key="access_token",
             value=str(refresh.access_token),
             httponly=True,
-            secure=False,
-            samesite="Lax"
+            secure=True,
+            samesite="None"
         )
 
         response.set_cookie(
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            secure=False,
-            samesite="Lax"
+            secure=True,
+            samesite="None"
         )
 
         return response
@@ -74,8 +74,8 @@ class LoginView(generics.GenericAPIView):
             key="access_token",
             value=str(refresh.access_token),
             httponly=True,
-            secure=False,  # production-ში True
-            samesite="Lax"
+            secure=True, 
+            samesite="None"
         )
 
         # 🍪 REFRESH TOKEN
@@ -83,8 +83,8 @@ class LoginView(generics.GenericAPIView):
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            secure=False,
-            samesite="Lax"
+            secure=True, 
+            samesite="None"
         )
 
         return response
@@ -191,16 +191,16 @@ def google_auth(request):
             key="access_token",
             value=str(refresh.access_token),
             httponly=True,
-            secure=False,
-            samesite="Lax"
+            secure=True,
+            samesite="None"
         )
 
         response.set_cookie(
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            secure=False,
-            samesite="Lax"
+            secure=True,
+            samesite="None"
         )
 
         return response
