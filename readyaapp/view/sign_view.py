@@ -26,6 +26,7 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
@@ -38,7 +39,8 @@ class RegisterView(generics.CreateAPIView):
             value=str(refresh.access_token),
             httponly=True,
             secure=True,
-            samesite="None"
+            samesite="None",
+            domain=".onrender.com"
         )
 
         response.set_cookie(
@@ -46,7 +48,8 @@ class RegisterView(generics.CreateAPIView):
             value=str(refresh),
             httponly=True,
             secure=True,
-            samesite="None"
+            samesite="None",
+            domain=".onrender.com"
         )
 
         return response
@@ -56,6 +59,8 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -78,7 +83,8 @@ class LoginView(generics.GenericAPIView):
             value=str(refresh.access_token),
             httponly=True,
             secure=True, 
-            samesite="None"
+            samesite="None",
+            domain=".onrender.com"
         )
 
        
@@ -87,7 +93,8 @@ class LoginView(generics.GenericAPIView):
             value=str(refresh),
             httponly=True,
             secure=True, 
-            samesite="None"
+            samesite="None",
+            domain=".onrender.com"
         )
 
         return response
@@ -199,7 +206,8 @@ def google_auth(request):
             value=str(refresh.access_token),
             httponly=True,
             secure=True,
-            samesite="None"
+            samesite="None",
+            domain=".onrender.com"
         )
 
         response.set_cookie(
@@ -207,7 +215,8 @@ def google_auth(request):
             value=str(refresh),
             httponly=True,
             secure=True,
-            samesite="None"
+            samesite="None",
+            domain=".onrender.com"
         )
 
         return response
