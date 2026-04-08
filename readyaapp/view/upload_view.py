@@ -69,15 +69,15 @@ class UploadDocumentView(APIView):
         
         # ===== PAYMENT CHECK =====
 
-        # free_usage = AudioDocument.objects.filter(
-        #     email=email,
-        #     mp3_file__isnull=False
-        # ).exclude(id=doc.id).exists()   
-        # if free_usage and doc.payment_status != "paid":
-        #     return Response(
-        #         {"error": "payment required"},
-        #         status=402
-        #     )               
+        free_usage = AudioDocument.objects.filter(
+            email=email,
+            mp3_file__isnull=False
+        ).exclude(id=doc.id).exists()   
+        if free_usage and doc.payment_status != "paid":
+            return Response(
+                {"error": "payment required"},
+                status=402
+            )               
 
 
         file = request.FILES.get("file")

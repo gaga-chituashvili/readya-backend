@@ -34,16 +34,16 @@ def generate_voice(request, doc_id):
    
     email = doc.email
 
-    # free_usage = AudioDocument.objects.filter(
-    #     email=email,
-    #     mp3_file__isnull=False
-    # ).exclude(id=doc.id).exists()
+    free_usage = AudioDocument.objects.filter(
+        email=email,
+        mp3_file__isnull=False
+    ).exclude(id=doc.id).exists()
 
-    # if free_usage and doc.payment_status != "paid":
-    #     return Response(
-    #         {"error": "payment required"},
-    #         status=402
-    #     )
+    if free_usage and doc.payment_status != "paid":
+        return Response(
+            {"error": "payment required"},
+            status=402
+        )
 
     
     if not doc.file_type:

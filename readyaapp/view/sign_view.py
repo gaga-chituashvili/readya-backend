@@ -19,8 +19,6 @@ from django.conf import settings
 from readyaapp.serializers.sign_serializer import PasswordResetRequestSerializer,PasswordResetConfirmSerializer
 
 
-
-
 User = get_user_model()
 
 #-------------- registration view -------------------
@@ -132,22 +130,26 @@ class LogoutView(generics.GenericAPIView):
 
 #-------------- profile view -------------------
 
+
+
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        user = request.user
+
         full_name = " ".join(filter(None, [
-            request.user.first_name,
-            request.user.last_name
+            user.first_name,
+            user.last_name
         ]))
 
         return Response({
-            "email": request.user.email,
-            "full_name": full_name
+            "email": user.email,
+            "full_name": full_name,
+            "subscription_plan": user.subscription_plan.name if user.subscription_plan else None,
+            "subscription_end": user.subscription_end,
+            "is_active_subscription": user.has_active_subscription()
         })
-    
-
-
 
 #-------------- google auth view -------------------
 
