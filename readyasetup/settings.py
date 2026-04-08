@@ -16,12 +16,14 @@ ALLOWED_HOSTS = [
     "localhost",
     "readya-backend.onrender.com",
     "www.readya-backend.onrender.com",
+    "api.readya.me"
 ]
 
 
 CSRF_TRUSTED_ORIGINS = [
     "https://readya-backend.onrender.com",
     "https://www.readya-backend.onrender.com",
+    "https://api.readya.me",
 
     "http://localhost:5173",
     "http://127.0.0.1:5173",
