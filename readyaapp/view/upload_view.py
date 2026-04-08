@@ -1,4 +1,6 @@
+import email
 import os
+from pydoc import doc
 import threading
 from pathlib import Path
 from uuid import uuid4
@@ -62,23 +64,21 @@ class UploadDocumentView(APIView):
         except AudioDocument.DoesNotExist:
             return Response({"error": "Document not found"}, status=404)
 
-        email = request.data.get("email")
+        user = request.user
 
-        if not email:
-            return Response({"error": "email is required"}, status=400)
+        if not user or not user.is_authenticated:
+            return Response({"error": "Unauthorized"}, status=401)
+        
+        email = user.email
         
         # ===== PAYMENT CHECK =====
 
-        free_usage = AudioDocument.objects.filter(
-            email=email,
-            mp3_file__isnull=False
-        ).exclude(id=doc.id).exists()   
-        if free_usage and doc.payment_status != "paid":
-            return Response(
-                {"error": "payment required"},
-                status=402
-            )               
+        if user.credits <= 0 and doc.payment_status != "paid":
+            return Response({"error": "Payment required"}, status=402)
 
+        if doc.payment_status != "paid":
+            user.credits -= 1
+            user.save() 
 
         file = request.FILES.get("file")
         text_content = request.data.get("text")

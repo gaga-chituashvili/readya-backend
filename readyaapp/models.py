@@ -123,6 +123,7 @@ class User(AbstractUser):
         null=True,
         blank=True
     )
+    credits = models.IntegerField(default=3)
 
     def has_active_subscription(self):
         if not self.subscription_end:
