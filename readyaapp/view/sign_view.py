@@ -39,8 +39,7 @@ class RegisterView(generics.CreateAPIView):
             value=str(refresh.access_token),
             httponly=True,
             secure=True,
-            samesite="None",
-            domain=".onrender.com"
+            samesite="None"
         )
 
         response.set_cookie(
@@ -48,8 +47,7 @@ class RegisterView(generics.CreateAPIView):
             value=str(refresh),
             httponly=True,
             secure=True,
-            samesite="None",
-            domain=".onrender.com"
+            samesite="None"
         )
 
         return response
@@ -83,8 +81,7 @@ class LoginView(generics.GenericAPIView):
             value=str(refresh.access_token),
             httponly=True,
             secure=True, 
-            samesite="None",
-            domain=".onrender.com"
+            samesite="None"
         )
 
        
@@ -93,8 +90,7 @@ class LoginView(generics.GenericAPIView):
             value=str(refresh),
             httponly=True,
             secure=True, 
-            samesite="None",
-            domain=".onrender.com"
+            samesite="None"
         )
 
         return response
@@ -107,6 +103,8 @@ class LoginView(generics.GenericAPIView):
 
 class LogoutView(generics.GenericAPIView):
     serializer_class = LogoutSerializer
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -206,8 +204,7 @@ def google_auth(request):
             value=str(refresh.access_token),
             httponly=True,
             secure=True,
-            samesite="None",
-            domain=".onrender.com"
+            samesite="None"
         )
 
         response.set_cookie(
@@ -215,8 +212,7 @@ def google_auth(request):
             value=str(refresh),
             httponly=True,
             secure=True,
-            samesite="None",
-            domain=".onrender.com"
+            samesite="None"
         )
 
         return response
