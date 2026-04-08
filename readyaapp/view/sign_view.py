@@ -11,9 +11,14 @@ from rest_framework.permissions import IsAuthenticated
 
 from google.oauth2 import id_token
 from google.auth.transport import requests
-
-from django.contrib.auth.models import User
 from rest_framework.decorators import api_view
+
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.conf import settings
+from readyaapp.serializers.sign_serializer import PasswordResetRequestSerializer,PasswordResetConfirmSerializer
+
+
 
 
 User = get_user_model()
@@ -69,7 +74,7 @@ class LoginView(generics.GenericAPIView):
             }
         }, status=status.HTTP_200_OK)
 
-        # 🍪 ACCESS TOKEN
+       
         response.set_cookie(
             key="access_token",
             value=str(refresh.access_token),
@@ -78,7 +83,7 @@ class LoginView(generics.GenericAPIView):
             samesite="None"
         )
 
-        # 🍪 REFRESH TOKEN
+       
         response.set_cookie(
             key="refresh_token",
             value=str(refresh),
@@ -118,7 +123,7 @@ class LogoutView(generics.GenericAPIView):
             status=status.HTTP_205_RESET_CONTENT
         )
 
-        # 🔥 აქ ვშლით cookies
+       
         response.delete_cookie("access_token")
         response.delete_cookie("refresh_token")
 
@@ -212,23 +217,68 @@ def google_auth(request):
 
     #-------------- password reset view -------------------
 
-class PasswordResetView(generics.GenericAPIView):
+
+
+
+class PasswordResetRequestView(generics.GenericAPIView):
+    serializer_class = PasswordResetRequestSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
-        email = request.data.get("email")
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if not email:
-            return Response({"error": "email is required"}, status=400)
+        email = serializer.validated_data["email"]
 
-        try:
-            user = User.objects.get(email=email)
+        user = User.objects.filter(email=email).first()
 
-           
 
-        except User.DoesNotExist:
-            pass  
+        if user:
+            uid = str(user.pk)
+            token = default_token_generator.make_token(user)
+
+
+            reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+
+            send_mail(
+                "Reset password",
+                f"Click here:\n{reset_link}",
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+            )
 
         return Response({
             "detail": "If this email exists, reset instructions were sent"
         })
+
+
+
+#-------------- password reset confirm view -------------------
+
+
+class PasswordResetConfirmView(generics.GenericAPIView):
+    serializer_class = PasswordResetConfirmSerializer
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        uid = serializer.validated_data["uid"]
+        token = serializer.validated_data["token"]
+        password = serializer.validated_data["password"]
+
+        try:
+            user = User.objects.get(pk=uid)
+        except User.DoesNotExist:
+            return Response({"error": "Invalid link"}, status=400)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({"error": "Invalid or expired token"}, status=400)
+
+        user.set_password(password)
+        user.save()
+
+        return Response({"detail": "Password changed successfully"})
