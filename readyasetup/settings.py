@@ -18,9 +18,15 @@ ALLOWED_HOSTS = [
     "www.readya-backend.onrender.com",
 ]
 
+
 CSRF_TRUSTED_ORIGINS = [
     "https://readya-backend.onrender.com",
     "https://www.readya-backend.onrender.com",
+
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://readya.me",
+    "https://www.readya.me",
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -82,10 +88,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",  
     "http://127.0.0.1:3000",
-    "https://readya.netlify.app",
-    "https://www.readya.netlify.app",
-    "https://www.readya.me",
     "https://readya.me",
+    "https://www.readya.me",
 ]
 
 
@@ -249,3 +253,6 @@ SESSION_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SAMESITE = "None"
 
 PASSWORD_RESET_TIMEOUT = 300
+
+
+
