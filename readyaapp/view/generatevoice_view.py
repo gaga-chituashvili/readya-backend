@@ -34,16 +34,14 @@ def generate_voice(request, doc_id):
    
     email = doc.email
 
-    free_usage = AudioDocument.objects.filter(
-        email=email,
-        mp3_file__isnull=False
-    ).exclude(id=doc.id).exists()
+    user = request.user
 
-    if free_usage and doc.payment_status != "paid":
-        return Response(
-            {"error": "payment required"},
-            status=402
-        )
+    if not user or not user.is_authenticated:
+        return Response({"error": "Unauthorized"}, status=401)
+    
+
+    if not user.has_active_subscription():
+        return Response({"error": "payment required"}, status=402)
 
     
     if not doc.file_type:

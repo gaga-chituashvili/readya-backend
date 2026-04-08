@@ -73,12 +73,12 @@ class UploadDocumentView(APIView):
         
         # ===== PAYMENT CHECK =====
 
-        if user.credits <= 0 and doc.payment_status != "paid":
+        
+
+        if not user.has_active_subscription():
             return Response({"error": "Payment required"}, status=402)
 
-        if doc.payment_status != "paid":
-            user.credits -= 1
-            user.save() 
+
 
         file = request.FILES.get("file")
         text_content = request.data.get("text")
