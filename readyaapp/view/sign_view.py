@@ -106,31 +106,27 @@ class LoginView(generics.GenericAPIView):
 
 
 class LogoutView(generics.GenericAPIView):
-    serializer_class = LogoutSerializer
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
 
-        refresh_token = serializer.validated_data["refresh"]
 
-        try:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-        except Exception:
-            return Response(
-                {"detail": "Invalid or expired token"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        refresh_token = request.COOKIES.get("refresh_token")
+
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except Exception:
+                pass 
 
         response = Response(
             {"detail": "Successfully logged out"},
             status=status.HTTP_205_RESET_CONTENT
         )
 
-        
+       
         response.set_cookie(
             key="access_token",
             value="",
@@ -140,10 +136,10 @@ class LogoutView(generics.GenericAPIView):
             secure=True,
             httponly=True,
             samesite="None",
-            domain=".readya.me"
+            domain=".readya.me",
         )
 
-
+     
         response.set_cookie(
             key="refresh_token",
             value="",
@@ -153,7 +149,7 @@ class LogoutView(generics.GenericAPIView):
             secure=True,
             httponly=True,
             samesite="None",
-            domain=".readya.me"
+            domain=".readya.me",
         )
 
         return response
