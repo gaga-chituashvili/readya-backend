@@ -126,12 +126,31 @@ class LogoutView(generics.GenericAPIView):
             status=status.HTTP_205_RESET_CONTENT
         )
 
-       
-        response.delete_cookie("access_token")
-        response.delete_cookie("refresh_token")
+        
+        response.set_cookie(
+            key="access_token",
+            value="",
+            max_age=0,
+            expires=0,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="None",
+        )
+
+
+        response.set_cookie(
+            key="refresh_token",
+            value="",
+            max_age=0,
+            expires=0,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="None",
+        )
 
         return response
-    
 
 #-------------- profile view -------------------
 
