@@ -28,7 +28,7 @@ def generate_voice(request, doc_id):
     
     if doc.mp3_file and doc.word_timestamps:
          return Response({
-         "stream_url": f"/stream/{doc.id}/",
+         "stream_url": request.build_absolute_uri(f"/stream/{doc.id}/"),
          "words": doc.word_timestamps or []
     })
    
@@ -115,7 +115,7 @@ def generate_voice(request, doc_id):
     os.remove(temp_path)
 
     return Response({
-        "stream_url": f"/stream/{doc.id}/",
+        "stream_url": request.build_absolute_uri(f"/stream/{doc.id}/"),
         "words": doc.word_timestamps
     })
 
