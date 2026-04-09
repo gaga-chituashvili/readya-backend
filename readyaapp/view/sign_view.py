@@ -39,7 +39,8 @@ class RegisterView(generics.CreateAPIView):
             value=str(refresh.access_token),
             httponly=True,
             secure=True,
-            samesite="None"
+            samesite="None",
+            domain=".readya.me"
         )
 
         response.set_cookie(
@@ -47,7 +48,8 @@ class RegisterView(generics.CreateAPIView):
             value=str(refresh),
             httponly=True,
             secure=True,
-            samesite="None"
+            samesite="None",
+            domain=".readya.me"
         )
 
         return response
@@ -81,7 +83,8 @@ class LoginView(generics.GenericAPIView):
             value=str(refresh.access_token),
             httponly=True,
             secure=True, 
-            samesite="None"
+            samesite="None",
+            domain=".readya.me"
         )
 
        
@@ -90,7 +93,8 @@ class LoginView(generics.GenericAPIView):
             value=str(refresh),
             httponly=True,
             secure=True, 
-            samesite="None"
+            samesite="None",
+            domain=".readya.me"
         )
 
         return response
@@ -136,6 +140,7 @@ class LogoutView(generics.GenericAPIView):
             secure=True,
             httponly=True,
             samesite="None",
+            domain=".readya.me"
         )
 
 
@@ -148,6 +153,7 @@ class LogoutView(generics.GenericAPIView):
             secure=True,
             httponly=True,
             samesite="None",
+            domain=".readya.me"
         )
 
         return response
@@ -223,7 +229,9 @@ def google_auth(request):
             value=str(refresh.access_token),
             httponly=True,
             secure=True,
-            samesite="None"
+            samesite="None",
+            domain=".readya.me"
+
         )
 
         response.set_cookie(
@@ -231,7 +239,9 @@ def google_auth(request):
             value=str(refresh),
             httponly=True,
             secure=True,
-            samesite="None"
+            samesite="None",
+            domain=".readya.me"
+
         )
 
         return response
