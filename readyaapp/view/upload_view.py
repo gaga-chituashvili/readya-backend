@@ -42,8 +42,8 @@ class UploadDocumentView(APIView):
             return Response({"error": "Unauthorized"}, status=401)
 
        
-        if not user.has_active_subscription():
-            return Response({"error": "Payment required"}, status=402)
+        # if not user.has_active_subscription():
+        #     return Response({"error": "Payment required"}, status=402)
 
         email = user.email
 
