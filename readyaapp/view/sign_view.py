@@ -17,29 +17,9 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.conf import settings
 from readyaapp.serializers.sign_serializer import PasswordResetRequestSerializer,PasswordResetConfirmSerializer
-import os
 
 
 User = get_user_model()
-
-
-
-IS_PROD = os.getenv("ENV") == "production"
-
-def get_cookie_settings():
-    if IS_PROD:
-        return {
-            "secure": True,
-            "samesite": "None",
-            "domain": ".readya.me",
-            "path": "/",  
-        }
-    return {
-        "secure": False,
-        "samesite": "Lax",
-        "domain": None,
-        "path": "/",  
-    }
 
 #-------------- registration view -------------------
 class RegisterView(generics.CreateAPIView):
@@ -54,23 +34,26 @@ class RegisterView(generics.CreateAPIView):
         user = User.objects.get(email=request.data["email"])
         refresh = RefreshToken.for_user(user)
 
-        cookie_settings = get_cookie_settings()
-
         response.set_cookie(
             key="access_token",
             value=str(refresh.access_token),
             httponly=True,
-            **cookie_settings
+            secure=True,
+            samesite="None",
+            domain=".readya.me"
         )
 
         response.set_cookie(
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            **cookie_settings
+            secure=True,
+            samesite="None",
+            domain=".readya.me"
         )
 
         return response
+
 
 #-------------- login view -------------------
 
@@ -86,8 +69,6 @@ class LoginView(generics.GenericAPIView):
         user = serializer.validated_data["user"]
         refresh = RefreshToken.for_user(user)
 
-        cookie_settings = get_cookie_settings()
-
         response = Response({
             "user": {
                 "id": user.id,
@@ -96,21 +77,28 @@ class LoginView(generics.GenericAPIView):
             }
         }, status=status.HTTP_200_OK)
 
+       
         response.set_cookie(
             key="access_token",
             value=str(refresh.access_token),
             httponly=True,
-            **cookie_settings
+            secure=True, 
+            samesite="None",
+            domain=".readya.me"
         )
 
+       
         response.set_cookie(
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            **cookie_settings
+            secure=True, 
+            samesite="None",
+            domain=".readya.me"
         )
 
         return response
+    
 
 #-------------- logout view -------------------
 
@@ -123,7 +111,7 @@ class LogoutView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
 
-       
+
         refresh_token = request.COOKIES.get("refresh_token")
 
         if refresh_token:
@@ -131,20 +119,41 @@ class LogoutView(generics.GenericAPIView):
                 token = RefreshToken(refresh_token)
                 token.blacklist()
             except Exception:
-                pass
+                pass 
 
         response = Response(
             {"detail": "Successfully logged out"},
             status=status.HTTP_205_RESET_CONTENT
         )
 
-        cookie_settings = get_cookie_settings()
-
        
-        response.delete_cookie("access_token", **cookie_settings)
-        response.delete_cookie("refresh_token", **cookie_settings)
+        response.set_cookie(
+            key="access_token",
+            value="",
+            max_age=0,
+            expires=0,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="None",
+            domain=".readya.me",
+        )
+
+     
+        response.set_cookie(
+            key="refresh_token",
+            value="",
+            max_age=0,
+            expires=0,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="None",
+            domain=".readya.me",
+        )
 
         return response
+
 #-------------- profile view -------------------
 
 
@@ -169,36 +178,6 @@ class ProfileView(APIView):
         })
 
 #-------------- google auth view -------------------
-
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from google.oauth2 import id_token
-from google.auth.transport import requests
-
-from django.contrib.auth import get_user_model
-import os
-
-User = get_user_model()
-
-
-IS_PROD = os.getenv("ENV") == "production"
-
-def get_cookie_settings():
-    if IS_PROD:
-        return {
-            "secure": True,
-            "samesite": "None",
-            "domain": ".readya.me",
-            "path": "/",
-        }
-    return {
-        "secure": False,
-        "samesite": "Lax",
-        "domain": None,
-        "path": "/",
-    }
 
 
 @api_view(['POST'])
@@ -241,27 +220,31 @@ def google_auth(request):
             "is_new_user": created
         })
 
-        
-        cookie_settings = get_cookie_settings()
-
         response.set_cookie(
             key="access_token",
             value=str(refresh.access_token),
             httponly=True,
-            **cookie_settings
+            secure=True,
+            samesite="None",
+            domain=".readya.me"
+
         )
 
         response.set_cookie(
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            **cookie_settings
+            secure=True,
+            samesite="None",
+            domain=".readya.me"
+
         )
 
         return response
 
     except Exception:
         return Response({"error": "Invalid Google token"}, status=400)
+    
 
 
     #-------------- password reset view -------------------
