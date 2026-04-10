@@ -40,8 +40,8 @@ def generate_voice(request, doc_id):
         return Response({"error": "Unauthorized"}, status=401)
     
 
-    if not user.has_active_subscription():
-        return Response({"error": "payment required"}, status=402)
+    # if not user.has_active_subscription():
+    #     return Response({"error": "payment required"}, status=402)
 
     
     if not doc.file_type:

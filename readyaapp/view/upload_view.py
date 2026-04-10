@@ -75,8 +75,8 @@ class UploadDocumentView(APIView):
 
         
 
-        if not user.has_active_subscription():
-            return Response({"error": "Payment required"}, status=402)
+        # if not user.has_active_subscription():
+        #     return Response({"error": "Payment required"}, status=402)
 
 
 
