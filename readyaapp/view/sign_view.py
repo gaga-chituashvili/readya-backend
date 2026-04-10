@@ -32,11 +32,13 @@ def get_cookie_settings():
             "secure": True,
             "samesite": "None",
             "domain": ".readya.me",
+            "path": "/",  
         }
     return {
         "secure": False,
         "samesite": "Lax",
         "domain": None,
+        "path": "/",  
     }
 
 #-------------- registration view -------------------
@@ -121,6 +123,7 @@ class LogoutView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
 
+       
         refresh_token = request.COOKIES.get("refresh_token")
 
         if refresh_token:
@@ -130,32 +133,16 @@ class LogoutView(generics.GenericAPIView):
             except Exception:
                 pass
 
-        cookie_settings = get_cookie_settings()
-
         response = Response(
             {"detail": "Successfully logged out"},
             status=status.HTTP_205_RESET_CONTENT
         )
 
-        response.set_cookie(
-            key="access_token",
-            value="",
-            max_age=0,
-            expires=0,
-            path="/",
-            httponly=True,
-            **cookie_settings
-        )
+        cookie_settings = get_cookie_settings()
 
-        response.set_cookie(
-            key="refresh_token",
-            value="",
-            max_age=0,
-            expires=0,
-            path="/",
-            httponly=True,
-            **cookie_settings
-        )
+       
+        response.delete_cookie("access_token", **cookie_settings)
+        response.delete_cookie("refresh_token", **cookie_settings)
 
         return response
 #-------------- profile view -------------------
@@ -182,6 +169,36 @@ class ProfileView(APIView):
         })
 
 #-------------- google auth view -------------------
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
+from django.contrib.auth import get_user_model
+import os
+
+User = get_user_model()
+
+
+IS_PROD = os.getenv("ENV") == "production"
+
+def get_cookie_settings():
+    if IS_PROD:
+        return {
+            "secure": True,
+            "samesite": "None",
+            "domain": ".readya.me",
+            "path": "/",
+        }
+    return {
+        "secure": False,
+        "samesite": "Lax",
+        "domain": None,
+        "path": "/",
+    }
 
 
 @api_view(['POST'])
@@ -224,31 +241,27 @@ def google_auth(request):
             "is_new_user": created
         })
 
+        
+        cookie_settings = get_cookie_settings()
+
         response.set_cookie(
             key="access_token",
             value=str(refresh.access_token),
             httponly=True,
-            secure=True,
-            samesite="None",
-            domain=".readya.me"
-
+            **cookie_settings
         )
 
         response.set_cookie(
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            secure=True,
-            samesite="None",
-            domain=".readya.me"
-
+            **cookie_settings
         )
 
         return response
 
     except Exception:
         return Response({"error": "Invalid Google token"}, status=400)
-    
 
 
     #-------------- password reset view -------------------
