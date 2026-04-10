@@ -17,13 +17,12 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.conf import settings
 from readyaapp.serializers.sign_serializer import PasswordResetRequestSerializer,PasswordResetConfirmSerializer
+import os
 
 
 User = get_user_model()
 
 
-
-import os
 
 IS_PROD = os.getenv("ENV") == "production"
 
