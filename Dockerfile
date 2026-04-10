@@ -20,6 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput 
 
 CMD ["gunicorn", "readyasetup.wsgi:application", "--bind", "0.0.0.0:10000", "--workers", "4", "--threads", "2", "--timeout", "120"]
