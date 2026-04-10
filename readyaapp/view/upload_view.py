@@ -1,5 +1,6 @@
 import os
 import threading
+import requests
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,14 +11,14 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.core.files import File
+from django.core.files.base import ContentFile
 
 from readyaapp.services.markupread import generate_voice_with_timestamps
 from readyaapp.services.email import send_email_with_mp3
 from readyaapp.services.pdf_reader import extract_text_from_pdf
 from readyaapp.services.docx_reader import extract_text_from_docx
 from readyaapp.services.image_reader import extract_text_from_image
-
-from ..models import AudioDocument
+from readyaapp.models import AudioDocument
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -40,7 +41,6 @@ class UploadDocumentView(APIView):
             return Response({"error": "Document not found"}, status=404)
 
         user = request.user
-
         if not user or not user.is_authenticated:
             return Response({"error": "Unauthorized"}, status=401)
 
@@ -51,8 +51,8 @@ class UploadDocumentView(APIView):
         upload_image = request.FILES.get("upload_image")
 
         if file and not upload_image:
-            file_extension = file.name.lower().split(".")[-1]
-            if file_extension in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']:
+            ext = file.name.lower().split(".")[-1]
+            if ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']:
                 upload_image = file
                 file = None
 
@@ -81,14 +81,14 @@ class UploadDocumentView(APIView):
 
             # ===== PDF / DOCX =====
             else:
-                file_extension = file.name.lower().split(".")[-1]
+                ext = file.name.lower().split(".")[-1]
 
-                if file_extension == "pdf":
+                if ext == "pdf":
                     doc.file_type = "pdf"
-                elif file_extension in ["docx", "doc"]:
+                elif ext in ["docx", "doc"]:
                     doc.file_type = "docx"
                 else:
-                    return Response({"error": f"Unsupported file type: {file_extension}"}, status=400)
+                    return Response({"error": f"Unsupported file type: {ext}"}, status=400)
 
                 doc.document_file = file
                 doc.save()
@@ -103,31 +103,44 @@ class UploadDocumentView(APIView):
             if not text or not text.strip():
                 return Response({"error": "No text extracted"}, status=400)
 
-            # 🔥 ერთიანი გენერაცია (audio + timestamps)
+           
             data = generate_voice_with_timestamps(text)
 
             if not data or "audio_url" not in data:
                 raise ValueError("Voice generation failed")
 
-            filename = data["audio_url"].split("/")[-1]
-            temp_path = os.path.join(settings.MEDIA_ROOT, filename)
+            audio_url = data.get("audio_url")
+            filename = audio_url.split("/")[-1]
 
-            if not os.path.exists(temp_path):
-                raise ValueError("Generated file missing")
+           
+            if audio_url.startswith("http"):
+                response = requests.get(audio_url)
+                if response.status_code != 200:
+                    raise ValueError("Failed to download audio")
 
-            # ✅ save mp3
-            with open(temp_path, "rb") as f:
-                doc.mp3_file.save(filename, File(f), save=False)
+                doc.mp3_file.save(
+                    filename,
+                    ContentFile(response.content),
+                    save=False
+                )
+            else:
+                temp_path = os.path.join(settings.MEDIA_ROOT, filename)
 
-            # ✅ save timestamps
+                if not os.path.exists(temp_path):
+                    raise ValueError("Generated file missing")
+
+                with open(temp_path, "rb") as f:
+                    doc.mp3_file.save(filename, File(f), save=False)
+
+                os.remove(temp_path)
+
+           
             doc.word_timestamps = data.get("words", [])
             doc.text_content = text
             doc.status = "done"
             doc.save()
 
-            os.remove(temp_path)
-
-            # 📧 email background
+           
             threading.Thread(
                 target=send_email_with_mp3,
                 args=(email, doc.mp3_file.path, player_url),
@@ -146,6 +159,7 @@ class UploadDocumentView(APIView):
             doc.status = "failed"
             doc.error_message = str(e)
             doc.save()
+
             return Response(
                 {"error": "processing failed", "detail": str(e)},
                 status=500
