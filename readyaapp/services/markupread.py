@@ -17,6 +17,9 @@ def generate_voice_with_timestamps(text: str):
     filename = f"{uuid.uuid4()}.mp3"
     file_path = Path(settings.MEDIA_ROOT) / filename
 
+
+    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+
     # -------- Cartesia Voice --------
     tts_response = requests.post(
         "https://api.cartesia.ai/tts/bytes",
@@ -53,7 +56,7 @@ def generate_voice_with_timestamps(text: str):
 
     # -------- Approximate Word Timing --------
     audio = AudioSegment.from_file(file_path)
-    duration = len(audio) / 1000  # seconds
+    duration = len(audio) / 1000
 
     words = re.findall(r"\b[\w\u10D0-\u10FF]+\b", text)
 
