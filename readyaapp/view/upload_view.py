@@ -1,8 +1,8 @@
+from pathlib import Path
 import os
 import threading
 import requests
 import traceback
-from pathlib import Path
 
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -27,8 +27,6 @@ class UploadDocumentView(APIView):
 
     def post(self, request):
 
-        print("=== STEP 1: START REQUEST ===")
-
         document_id = request.data.get("document_id")
 
         if not document_id:
@@ -42,6 +40,10 @@ class UploadDocumentView(APIView):
         user = request.user
         if not user or not user.is_authenticated:
             return Response({"error": "Unauthorized"}, status=401)
+
+       
+        if not user.has_active_subscription():
+            return Response({"error": "Payment required"}, status=402)
 
         email = user.email
 
@@ -64,12 +66,12 @@ class UploadDocumentView(APIView):
         player_url = f"{settings.FRONTEND_URL}/player/{doc.id}"
 
         try:
-            print("=== STEP 2: EXTRACT TEXT ===")
-
+            # ===== TEXT =====
             if text_content and not file:
                 text = text_content
                 doc.file_type = "text"
 
+            # ===== IMAGE =====
             elif upload_image:
                 doc.upload_image = upload_image
                 doc.file_type = "image"
@@ -78,6 +80,7 @@ class UploadDocumentView(APIView):
                 image_path = Path(doc.upload_image.path)
                 text = extract_text_from_image(str(image_path))
 
+            # ===== PDF / DOCX =====
             else:
                 ext = file.name.lower().split(".")[-1]
 
@@ -98,35 +101,24 @@ class UploadDocumentView(APIView):
                 else:
                     text = extract_text_from_docx(str(doc_path))
 
-            print("TEXT LENGTH:", len(text) if text else "NO TEXT")
-
             if not text or not text.strip():
                 return Response({"error": "No text extracted"}, status=400)
 
-            print("=== STEP 3: GENERATE AUDIO ===")
-
             data = generate_voice_with_timestamps(text)
-            print("DATA:", data)
 
             if not data or "audio_url" not in data:
-                raise ValueError(f"Invalid data from generator: {data}")
+                raise ValueError("Invalid response from voice generator")
 
             audio_url = data.get("audio_url")
-            print("AUDIO URL:", audio_url)
 
             if not audio_url:
                 raise ValueError("audio_url is empty")
 
             filename = audio_url.split("/")[-1]
 
-            print("=== STEP 4: HANDLE AUDIO FILE ===")
-
-            # 🔥 HANDLE BOTH LOCAL + EXTERNAL
+            # ===== HANDLE AUDIO =====
             if audio_url.startswith("http"):
-                print("Downloading external audio...")
-
                 response = requests.get(audio_url, timeout=20)
-                print("DOWNLOAD STATUS:", response.status_code)
 
                 if response.status_code != 200:
                     raise ValueError(f"Download failed: {response.status_code}")
@@ -136,12 +128,8 @@ class UploadDocumentView(APIView):
                     ContentFile(response.content),
                     save=False
                 )
-
             else:
-                print("Using local file...")
-
                 temp_path = os.path.join(settings.MEDIA_ROOT, filename)
-                print("TEMP PATH:", temp_path)
 
                 if not os.path.exists(temp_path):
                     raise ValueError("Generated file missing")
@@ -151,24 +139,21 @@ class UploadDocumentView(APIView):
 
                 os.remove(temp_path)
 
-            print("=== STEP 5: SAVE DATA ===")
-
+            # ===== SAVE DATA =====
             doc.word_timestamps = data.get("words", [])
             doc.text_content = text
             doc.status = "done"
             doc.save()
 
-            print("DOCUMENT SAVED")
-
-            # EMAIL (optional)
+            # ===== EMAIL (background) =====
             try:
                 threading.Thread(
                     target=send_email_with_mp3,
                     args=(email, doc.mp3_file.path, player_url),
                     daemon=True
                 ).start()
-            except Exception as email_error:
-                print("EMAIL ERROR:", email_error)
+            except Exception:
+                pass
 
             return Response({
                 "id": str(doc.id),
@@ -179,9 +164,6 @@ class UploadDocumentView(APIView):
             }, status=201)
 
         except Exception as e:
-            print("🔥 ERROR:", str(e))
-            traceback.print_exc()
-
             doc.status = "failed"
             doc.error_message = str(e)
             doc.save()
