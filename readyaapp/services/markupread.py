@@ -9,7 +9,14 @@ from num2words import num2words
 import whisper
 
 
-model = whisper.load_model("base")
+
+_model = None
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = whisper.load_model("tiny")  
+    return _model
 
 
 def is_georgian(text):
@@ -35,6 +42,8 @@ def add_pauses(text):
 
 
 def get_word_timestamps(audio_path):
+    model = get_model()  
+
     result = model.transcribe(
         audio_path,
         word_timestamps=True,
@@ -65,7 +74,8 @@ def generate_voice_with_timestamps(text: str):
 
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
 
-    clean_text = " ".join(text.split())
+    
+    clean_text = re.sub(r"\s+", " ", text).strip()
     clean_text = add_pauses(clean_text)
 
     if not is_georgian(clean_text):
@@ -76,53 +86,51 @@ def generate_voice_with_timestamps(text: str):
 
     chunks = split_long_sentences(clean_text)
 
-    full_audio = b""
-
-    for i, chunk in enumerate(chunks):
-        chunk = chunk.strip()
-
-        response = requests.post(
-            "https://api.cartesia.ai/tts/bytes",
-            headers={
-                "Authorization": f"Bearer {cartesia_key}",
-                "Cartesia-Version": "2025-04-16",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model_id": "sonic-3",
-                "transcript": chunk,
-                "voice": {
-                    "mode": "id",
-                    "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
-                },
-                "output_format": {
-                    "container": "mp3",
-                    "encoding": "mp3",
-                    "sample_rate": 44100
-                },
-                "generation_config": {
-                    "speed": 0.92,
-                    "volume": 1.0
-                }
-            },
-            timeout=30
-        )
-
-        if response.status_code != 200:
-            raise Exception(response.text)
-
-        full_audio += response.content
-
-        if i < len(chunks) - 1:
-            full_audio += b"\x00" * 5000
-
+   
     with open(file_path, "wb") as f:
-        f.write(full_audio)
+        for i, chunk in enumerate(chunks):
+            chunk = chunk.strip()
 
+            response = requests.post(
+                "https://api.cartesia.ai/tts/bytes",
+                headers={
+                    "Authorization": f"Bearer {cartesia_key}",
+                    "Cartesia-Version": "2025-04-16",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model_id": "sonic-3",
+                    "transcript": chunk,
+                    "voice": {
+                        "mode": "id",
+                        "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
+                    },
+                    "output_format": {
+                        "container": "mp3",
+                        "encoding": "mp3",
+                        "sample_rate": 44100
+                    },
+                    "generation_config": {
+                        "speed": 0.92,
+                        "volume": 1.0
+                    }
+                },
+                timeout=(5, 30)  
+            )
+
+            if response.status_code != 200:
+                raise Exception(response.text)
+
+            f.write(response.content)
+
+            if i < len(chunks) - 1:
+                f.write(b"\x00" * 5000)
+
+   
     audio = AudioSegment.from_file(file_path)
     duration = len(audio) / 1000
 
-    # 🔥 აქ არის ერთადერთი ცვლილება (რეალური timestamps)
+   
     aligned_words = get_word_timestamps(str(file_path))
 
     return {
