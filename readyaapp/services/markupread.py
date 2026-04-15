@@ -2,6 +2,8 @@ import requests
 import os
 import uuid
 import re
+import threading
+import whisper
 from pathlib import Path
 from django.conf import settings
 from pydub import AudioSegment
@@ -30,6 +32,34 @@ def add_pauses(text):
     return text.strip()
 
 
+
+def process_timestamps(audio_path):
+    try:
+        model = whisper.load_model("tiny")
+
+        result = model.transcribe(
+            audio_path,
+            word_timestamps=True,
+            fp16=False
+        )
+
+        words = []
+
+        for segment in result["segments"]:
+            for w in segment["words"]:
+                words.append({
+                    "word": w["word"].strip(),
+                    "start": round(w["start"], 2),
+                    "end": round(w["end"], 2)
+                })
+
+       
+        print("WHISPER READY:", words[:5])
+
+    except Exception as e:
+        print("Whisper error:", str(e))
+
+
 def generate_voice_with_timestamps(text: str):
     cartesia_key = os.getenv("CARTESIA_API_KEY")
 
@@ -41,7 +71,6 @@ def generate_voice_with_timestamps(text: str):
 
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
 
-    # სწრაფი clean
     clean_text = re.sub(r"\s+", " ", text).strip()
     clean_text = add_pauses(clean_text)
 
@@ -53,11 +82,9 @@ def generate_voice_with_timestamps(text: str):
 
     chunks = split_long_sentences(clean_text)
 
-    # 🔥 STREAM WRITE (NO MEMORY ISSUE)
+   
     with open(file_path, "wb") as f:
         for i, chunk in enumerate(chunks):
-            chunk = chunk.strip()
-
             response = requests.post(
                 "https://api.cartesia.ai/tts/bytes",
                 headers={
@@ -67,7 +94,7 @@ def generate_voice_with_timestamps(text: str):
                 },
                 json={
                     "model_id": "sonic-3",
-                    "transcript": chunk,
+                    "transcript": chunk.strip(),
                     "voice": {
                         "mode": "id",
                         "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
@@ -93,40 +120,41 @@ def generate_voice_with_timestamps(text: str):
             if i < len(chunks) - 1:
                 f.write(b"\x00" * 5000)
 
-    # duration
+    
     try:
         audio = AudioSegment.from_file(file_path)
         duration = len(audio) / 1000
     except:
         duration = 0
 
-    # 🔥 LIGHTWEIGHT TIMESTAMPS
+    
     words = re.findall(r"\b[\w\u10D0-\u10FF]+\b", clean_text)
 
-    if not words:
-        return {
-            "audio_url": settings.MEDIA_URL + filename,
-            "words": [],
-            "duration": duration
-        }
-
-    segment = duration / len(words)
-
     aligned_words = []
-    current = 0.0
+    if words:
+        segment = duration / len(words)
+        current = 0.0
 
-    for word in words:
-        aligned_words.append({
-            "word": word,
-            "start": round(current, 2),
-            "end": round(current + segment, 2)
-        })
-        current += segment
+        for word in words:
+            aligned_words.append({
+                "word": word,
+                "start": round(current, 2),
+                "end": round(current + segment, 2)
+            })
+            current += segment
+
+   
+    threading.Thread(
+        target=process_timestamps,
+        args=(str(file_path),),
+        daemon=True
+    ).start()
 
     return {
         "audio_url": settings.MEDIA_URL + filename,
         "words": aligned_words,
-        "duration": round(duration, 2)
+        "duration": round(duration, 2),
+        "status": "processing"
     }
 
 
