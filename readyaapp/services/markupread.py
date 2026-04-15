@@ -7,15 +7,20 @@ from django.conf import settings
 from pydub import AudioSegment
 from num2words import num2words
 import whisper
+import threading
 
 
 
 _model = None
+_model_lock = threading.Lock()
+
 
 def get_model():
     global _model
     if _model is None:
-        _model = whisper.load_model("tiny")  
+        with _model_lock:
+            if _model is None:
+                _model = whisper.load_model("tiny")
     return _model
 
 
@@ -42,25 +47,30 @@ def add_pauses(text):
 
 
 def get_word_timestamps(audio_path):
-    model = get_model()  
+    try:
+        model = get_model()
 
-    result = model.transcribe(
-        audio_path,
-        word_timestamps=True,
-        fp16=False
-    )
+        result = model.transcribe(
+            audio_path,
+            word_timestamps=True,
+            fp16=False
+        )
 
-    words = []
+        words = []
 
-    for segment in result["segments"]:
-        for w in segment["words"]:
-            words.append({
-                "word": w["word"].strip(),
-                "start": round(w["start"], 2),
-                "end": round(w["end"], 2)
-            })
+        for segment in result.get("segments", []):
+            for w in segment.get("words", []):
+                words.append({
+                    "word": w["word"].strip(),
+                    "start": round(w["start"], 2),
+                    "end": round(w["end"], 2)
+                })
 
-    return words
+        return words
+
+    except Exception as e:
+        print("Whisper error:", str(e))
+        return [] 
 
 
 def generate_voice_with_timestamps(text: str):
@@ -86,51 +96,58 @@ def generate_voice_with_timestamps(text: str):
 
     chunks = split_long_sentences(clean_text)
 
-   
-    with open(file_path, "wb") as f:
-        for i, chunk in enumerate(chunks):
-            chunk = chunk.strip()
+    try:
+        with open(file_path, "wb") as f:
+            for i, chunk in enumerate(chunks):
+                chunk = chunk.strip()
 
-            response = requests.post(
-                "https://api.cartesia.ai/tts/bytes",
-                headers={
-                    "Authorization": f"Bearer {cartesia_key}",
-                    "Cartesia-Version": "2025-04-16",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model_id": "sonic-3",
-                    "transcript": chunk,
-                    "voice": {
-                        "mode": "id",
-                        "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
+                response = requests.post(
+                    "https://api.cartesia.ai/tts/bytes",
+                    headers={
+                        "Authorization": f"Bearer {cartesia_key}",
+                        "Cartesia-Version": "2025-04-16",
+                        "Content-Type": "application/json"
                     },
-                    "output_format": {
-                        "container": "mp3",
-                        "encoding": "mp3",
-                        "sample_rate": 44100
+                    json={
+                        "model_id": "sonic-3",
+                        "transcript": chunk,
+                        "voice": {
+                            "mode": "id",
+                            "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
+                        },
+                        "output_format": {
+                            "container": "mp3",
+                            "encoding": "mp3",
+                            "sample_rate": 44100
+                        },
+                        "generation_config": {
+                            "speed": 0.92,
+                            "volume": 1.0
+                        }
                     },
-                    "generation_config": {
-                        "speed": 0.92,
-                        "volume": 1.0
-                    }
-                },
-                timeout=(5, 30)  
-            )
+                    timeout=(5, 30)
+                )
 
-            if response.status_code != 200:
-                raise Exception(response.text)
+                if response.status_code != 200:
+                    raise Exception(response.text)
 
-            f.write(response.content)
+                f.write(response.content)
 
-            if i < len(chunks) - 1:
-                f.write(b"\x00" * 5000)
+                if i < len(chunks) - 1:
+                    f.write(b"\x00" * 5000)
 
-   
-    audio = AudioSegment.from_file(file_path)
-    duration = len(audio) / 1000
+    except Exception as e:
+        print("TTS error:", str(e))
+        raise
 
    
+    try:
+        audio = AudioSegment.from_file(file_path)
+        duration = len(audio) / 1000
+    except:
+        duration = 0
+
+
     aligned_words = get_word_timestamps(str(file_path))
 
     return {
