@@ -5,6 +5,11 @@ import re
 from pathlib import Path
 from django.conf import settings
 from pydub import AudioSegment
+from num2words import num2words
+
+
+def is_georgian(text):
+    return bool(re.search(r'[\u10D0-\u10FF]', text))
 
 
 def split_long_sentences(text, max_length=400):
@@ -20,8 +25,12 @@ def split_long_sentences(text, max_length=400):
     return chunks
 
 
-def generate_voice_with_timestamps(text: str):
+def add_pauses(text):
+    text = re.sub(r'([.,!?])\s*', r'\1 ', text)
+    return text.strip()
 
+
+def generate_voice_with_timestamps(text: str):
     cartesia_key = os.getenv("CARTESIA_API_KEY")
 
     if not cartesia_key:
@@ -30,62 +39,68 @@ def generate_voice_with_timestamps(text: str):
     filename = f"{uuid.uuid4()}.mp3"
     file_path = Path(settings.MEDIA_ROOT) / filename
 
-  
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
 
-    clean_text = " ".join(text.split())
+    # სწრაფი clean
+    clean_text = re.sub(r"\s+", " ", text).strip()
+    clean_text = add_pauses(clean_text)
+
+    if not is_georgian(clean_text):
+        clean_text = normalize_roman(clean_text)
+        clean_text = normalize_numbers(clean_text)
+        clean_text = clean_text.replace("%", " percent")
+        clean_text = clean_text.replace("$", " dollars")
+
     chunks = split_long_sentences(clean_text)
 
-    full_audio = b""
-
-    
-    for i, chunk in enumerate(chunks):
-        chunk = chunk.strip() + "..."
-
-        response = requests.post(
-            "https://api.cartesia.ai/tts/bytes",
-            headers={
-                "Authorization": f"Bearer {cartesia_key}",
-                "Cartesia-Version": "2025-04-16",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model_id": "sonic-3",
-                "transcript": chunk,
-                "voice": {
-                    "mode": "id",
-                    "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
-                },
-                "output_format": {
-                    "container": "mp3",
-                    "encoding": "mp3",
-                    "sample_rate": 44100
-                },
-                "generation_config": {
-                    "speed": 0.92,
-                    "volume": 1.0
-                }
-            },
-            timeout=30
-        )
-
-        if response.status_code != 200:
-            raise Exception(response.text)
-
-        full_audio += response.content
-
-        
-        if i < len(chunks) - 1:
-            full_audio += b"\x00" * 5000
-
-   
+    # 🔥 STREAM WRITE (NO MEMORY ISSUE)
     with open(file_path, "wb") as f:
-        f.write(full_audio)
+        for i, chunk in enumerate(chunks):
+            chunk = chunk.strip()
 
-    
-    audio = AudioSegment.from_file(file_path)
-    duration = len(audio) / 1000
+            response = requests.post(
+                "https://api.cartesia.ai/tts/bytes",
+                headers={
+                    "Authorization": f"Bearer {cartesia_key}",
+                    "Cartesia-Version": "2025-04-16",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model_id": "sonic-3",
+                    "transcript": chunk,
+                    "voice": {
+                        "mode": "id",
+                        "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
+                    },
+                    "output_format": {
+                        "container": "mp3",
+                        "encoding": "mp3",
+                        "sample_rate": 44100
+                    },
+                    "generation_config": {
+                        "speed": 0.92,
+                        "volume": 1.0
+                    }
+                },
+                timeout=(5, 30)
+            )
 
+            if response.status_code != 200:
+                raise Exception(response.text)
+
+            f.write(response.content)
+
+            if i < len(chunks) - 1:
+                f.write(b"\x00" * 5000)
+
+    # duration
+    try:
+        audio = AudioSegment.from_file(file_path)
+        duration = len(audio) / 1000
+    except:
+        duration = 0
+
+    # 🔥 LIGHTWEIGHT TIMESTAMPS
     words = re.findall(r"\b[\w\u10D0-\u10FF]+\b", clean_text)
 
     if not words:
@@ -113,3 +128,50 @@ def generate_voice_with_timestamps(text: str):
         "words": aligned_words,
         "duration": round(duration, 2)
     }
+
+
+def normalize_numbers(text):
+    def replace_number(match):
+        num = match.group()
+        try:
+            return num2words(int(num))
+        except:
+            return num
+
+    return re.sub(r'\b\d+\b', replace_number, text)
+
+
+ROMAN_MAP = {
+    'I': 1, 'V': 5, 'X': 10,
+    'L': 50, 'C': 100,
+    'D': 500, 'M': 1000
+}
+
+
+def roman_to_int(s):
+    total = 0
+    prev = 0
+
+    for char in reversed(s):
+        value = ROMAN_MAP.get(char, 0)
+
+        if value < prev:
+            total -= value
+        else:
+            total += value
+
+        prev = value
+
+    return total
+
+
+def normalize_roman(text):
+    def replace_roman(match):
+        roman = match.group()
+        try:
+            number = roman_to_int(roman)
+            return num2words(number)
+        except:
+            return roman
+
+    return re.sub(r'\b[IVXLCDM]+\b', replace_roman, text)
