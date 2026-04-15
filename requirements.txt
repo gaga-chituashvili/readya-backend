@@ -21,4 +21,4 @@ cryptography
 openai
 djangorestframework-simplejwt
 num2words
-whisper
+openai-whisper
