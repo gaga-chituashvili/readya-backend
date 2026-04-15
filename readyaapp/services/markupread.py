@@ -6,22 +6,6 @@ from pathlib import Path
 from django.conf import settings
 from pydub import AudioSegment
 from num2words import num2words
-import whisper
-import threading
-
-
-
-_model = None
-_model_lock = threading.Lock()
-
-
-def get_model():
-    global _model
-    if _model is None:
-        with _model_lock:
-            if _model is None:
-                _model = whisper.load_model("tiny")
-    return _model
 
 
 def is_georgian(text):
@@ -46,33 +30,6 @@ def add_pauses(text):
     return text.strip()
 
 
-def get_word_timestamps(audio_path):
-    try:
-        model = get_model()
-
-        result = model.transcribe(
-            audio_path,
-            word_timestamps=True,
-            fp16=False
-        )
-
-        words = []
-
-        for segment in result.get("segments", []):
-            for w in segment.get("words", []):
-                words.append({
-                    "word": w["word"].strip(),
-                    "start": round(w["start"], 2),
-                    "end": round(w["end"], 2)
-                })
-
-        return words
-
-    except Exception as e:
-        print("Whisper error:", str(e))
-        return [] 
-
-
 def generate_voice_with_timestamps(text: str):
     cartesia_key = os.getenv("CARTESIA_API_KEY")
 
@@ -84,71 +41,94 @@ def generate_voice_with_timestamps(text: str):
 
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
 
-    
-    clean_text = re.sub(r"\s+", " ", text).strip()
+
+
+
+
+    clean_text = " ".join(text.split())
     clean_text = add_pauses(clean_text)
 
+    
     if not is_georgian(clean_text):
         clean_text = normalize_roman(clean_text)
         clean_text = normalize_numbers(clean_text)
         clean_text = clean_text.replace("%", " percent")
         clean_text = clean_text.replace("$", " dollars")
 
+    
     chunks = split_long_sentences(clean_text)
 
-    try:
-        with open(file_path, "wb") as f:
-            for i, chunk in enumerate(chunks):
-                chunk = chunk.strip()
+    full_audio = b""
 
-                response = requests.post(
-                    "https://api.cartesia.ai/tts/bytes",
-                    headers={
-                        "Authorization": f"Bearer {cartesia_key}",
-                        "Cartesia-Version": "2025-04-16",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model_id": "sonic-3",
-                        "transcript": chunk,
-                        "voice": {
-                            "mode": "id",
-                            "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
-                        },
-                        "output_format": {
-                            "container": "mp3",
-                            "encoding": "mp3",
-                            "sample_rate": 44100
-                        },
-                        "generation_config": {
-                            "speed": 0.92,
-                            "volume": 1.0
-                        }
-                    },
-                    timeout=(5, 30)
-                )
+    for i, chunk in enumerate(chunks):
+        chunk = chunk.strip()
 
-                if response.status_code != 200:
-                    raise Exception(response.text)
+        response = requests.post(
+            "https://api.cartesia.ai/tts/bytes",
+            headers={
+                "Authorization": f"Bearer {cartesia_key}",
+                "Cartesia-Version": "2025-04-16",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model_id": "sonic-3",
+                "transcript": chunk,
+                "voice": {
+                    "mode": "id",
+                    "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
+                },
+                "output_format": {
+                    "container": "mp3",
+                    "encoding": "mp3",
+                    "sample_rate": 44100
+                },
+                "generation_config": {
+                    "speed": 0.92,
+                    "volume": 1.0
+                }
+            },
+            timeout=30
+        )
 
-                f.write(response.content)
+        if response.status_code != 200:
+            raise Exception(response.text)
 
-                if i < len(chunks) - 1:
-                    f.write(b"\x00" * 5000)
+        full_audio += response.content
 
-    except Exception as e:
-        print("TTS error:", str(e))
-        raise
-
-   
-    try:
-        audio = AudioSegment.from_file(file_path)
-        duration = len(audio) / 1000
-    except:
-        duration = 0
+        
+        if i < len(chunks) - 1:
+            full_audio += b"\x00" * 5000
 
 
-    aligned_words = get_word_timestamps(str(file_path))
+    with open(file_path, "wb") as f:
+        f.write(full_audio)
+
+
+    audio = AudioSegment.from_file(file_path)
+    duration = len(audio) / 1000
+
+
+    words = re.findall(r"\b[\w\u10D0-\u10FF]+\b", clean_text)
+
+    if not words:
+        return {
+            "audio_url": settings.MEDIA_URL + filename,
+            "words": [],
+            "duration": duration
+        }
+
+    segment = duration / len(words)
+
+    aligned_words = []
+    current = 0.0
+
+    for word in words:
+        aligned_words.append({
+            "word": word,
+            "start": round(current, 2),
+            "end": round(current + segment, 2)
+        })
+        current += segment
 
     return {
         "audio_url": settings.MEDIA_URL + filename,
