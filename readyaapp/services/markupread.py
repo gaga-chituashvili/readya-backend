@@ -25,6 +25,11 @@ def split_long_sentences(text, max_length=400):
     return chunks
 
 
+def add_pauses(text):
+    text = re.sub(r'([.,!?])\s*', r'\1 ', text)
+    return text.strip()
+
+
 def generate_voice_with_timestamps(text: str):
     cartesia_key = os.getenv("CARTESIA_API_KEY")
 
@@ -37,7 +42,11 @@ def generate_voice_with_timestamps(text: str):
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
 
 
+
+
+
     clean_text = " ".join(text.split())
+    clean_text = add_pauses(clean_text)
 
     
     if not is_georgian(clean_text):
@@ -52,7 +61,7 @@ def generate_voice_with_timestamps(text: str):
     full_audio = b""
 
     for i, chunk in enumerate(chunks):
-        chunk = chunk.strip() + "..."
+        chunk = chunk.strip()
 
         response = requests.post(
             "https://api.cartesia.ai/tts/bytes",
