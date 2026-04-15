@@ -109,7 +109,6 @@ def keepz_webhook(request):
         try:
             with transaction.atomic():
 
-              
                 doc.payment_status = "paid"
                 doc.status = "processing"
 
@@ -117,6 +116,7 @@ def keepz_webhook(request):
                     doc.payment_amount = amount
 
                 
+
                 try:
                     user = User.objects.get(email=doc.email)
                     plan = doc.plan
@@ -126,19 +126,21 @@ def keepz_webhook(request):
                         return Response({"error": "plan missing"}, status=400)
 
                    
+                    user.subscription_plan = plan
+
                     if user.subscription_end and user.subscription_end > timezone.now():
                         user.subscription_end += timedelta(days=plan.duration_days)
                     else:
                         user.subscription_end = timezone.now() + timedelta(days=plan.duration_days)
 
-                    user.save()
+                    user.save(update_fields=["subscription_plan", "subscription_end"])
 
                     logger.info(f"🎉 Subscription activated for {user.email}")
 
                 except User.DoesNotExist:
                     logger.warning(f"⚠️ User not found for email {doc.email}")
 
-                doc.save()
+                doc.save(update_fields=["payment_status", "status", "payment_amount"])
 
             logger.info(f"✅ Payment confirmed for document {order_id}")
             return Response({"success": True}, status=200)

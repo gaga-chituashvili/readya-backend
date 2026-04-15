@@ -114,8 +114,16 @@ class AudioDocument(models.Model):
 
 
 
+
 class User(AbstractUser):
     subscription_end = models.DateTimeField(null=True, blank=True)
+    subscription_plan = models.ForeignKey(
+        "SubscriptionPlan",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    credits = models.IntegerField(default=3)
 
     def has_active_subscription(self):
         if not self.subscription_end:

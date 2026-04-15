@@ -7,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "temp-build-key")
 
 DEBUG = False
 
@@ -16,14 +16,21 @@ ALLOWED_HOSTS = [
     "localhost",
     "readya-backend.onrender.com",
     "www.readya-backend.onrender.com",
+    "api.readya.me"
 ]
+
 
 CSRF_TRUSTED_ORIGINS = [
     "https://readya-backend.onrender.com",
     "https://www.readya-backend.onrender.com",
+    "https://api.readya.me",
+
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://readya.me",
+    "https://www.readya.me",
 ]
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 load_dotenv(os.path.join(BASE_DIR, '.env')) 
 
@@ -33,7 +40,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 
 INSTALLED_APPS = [
@@ -53,9 +61,8 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "readyaapp.authentication.CookieJWTAuthentication",
     ),
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 SIMPLE_JWT = {
@@ -83,10 +90,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",  
     "http://127.0.0.1:3000",
-    "https://readya.netlify.app",
-    "https://www.readya.netlify.app",
-    "https://www.readya.me",
     "https://readya.me",
+    "https://www.readya.me",
 ]
 
 
@@ -242,3 +247,25 @@ AUTH_USER_MODEL = 'readyaapp.User'
 
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+
+
+
+SESSION_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE = "None"
+
+PASSWORD_RESET_TIMEOUT = 300
+
+
+
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+
+
+SECURE_SSL_REDIRECT = False
+
+os.makedirs(MEDIA_ROOT, exist_ok=True)

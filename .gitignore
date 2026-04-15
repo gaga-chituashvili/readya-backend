@@ -8,3 +8,7 @@ uploads
 .venv
 *.pem
 google-tts.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
