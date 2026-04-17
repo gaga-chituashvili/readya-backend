@@ -142,55 +142,55 @@ def generate_word_timestamps(text, duration):
     if not tokens:
         return []
 
-    vowels = set("aeiouAEIOUაეიოუ")
-
     weights = []
     total_weight = 0
 
     for t in tokens:
-        if re.match(r"[.,!?;]", t):
-            weight = 7.5  
+        if t == ",":
+            weight = 1.5
+        elif t == ";":
+            weight = 2.0
+        elif t == ".":
+            weight = 3.0
+        elif t in ["!", "?"]:
+            weight = 3.5
         else:
-            weight = 0
-
-            for ch in t:
-                if ch in vowels:
-                    weight += 1.3
-                else:
-                    weight += 0.9
-
-            # long word boost
-            weight += min(len(t), 8) * 0.12
+            weight = len(t) ** 1.0
 
         weights.append(weight)
         total_weight += weight
 
-   
-
+    
     result = []
-    cumulative = 0.0
+    current_time = 0.0
 
-    for t, weight in zip(tokens, weights):
-        portion = weight / total_weight
-        start = duration * cumulative
-        cumulative += portion
-        end = duration * cumulative
+    for t, w in zip(tokens, weights):
+        portion = w / total_weight
+        duration_part = duration * portion
+
+        start = current_time
+        end = current_time + duration_part
+
+       
+        if result:
+            prev_end = result[-1]["end"]
+            if start < prev_end:
+                start = prev_end
+                end = start + duration_part
 
         result.append({
             "word": t,
-            "start": start,
-            "end": end
+            "start": round(start, 3),
+            "end": round(end, 3)
         })
-    for w in result:
-        w["start"] = round(w["start"], 3)
-        w["end"] = round(w["end"], 3)
 
-        
+        current_time = end
 
-
+    
+    if result:
+        result[-1]["end"] = duration
 
     return result
-
 
 # =========================
 # MAIN FUNCTION
