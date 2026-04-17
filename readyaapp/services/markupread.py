@@ -293,7 +293,11 @@ def generate_voice_with_timestamps(text: str):
         json={
             "model_id": "sonic-3",
             "transcript": clean_text,
-            "voice": {"mode": "id", "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"},
+            "voice": {
+                "mode": "id",
+                "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d",
+                "speed": 0.85 
+            },
             "output_format": {
                 "container": "mp3",
                 "encoding": "mp3",
@@ -313,10 +317,8 @@ def generate_voice_with_timestamps(text: str):
 
     words = align_with_whisperx(str(file_path), clean_text)
 
-    
     words = fit_timeline_to_audio(words, duration)
 
-    
     for w in words:
         w["start"] = round(w["start"], 3)
         w["end"] = round(w["end"], 3)
