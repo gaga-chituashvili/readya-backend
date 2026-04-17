@@ -6,9 +6,185 @@ from pathlib import Path
 from django.conf import settings
 from pydub import AudioSegment
 from num2words import num2words
+import whisperx
 
 
+DEVICE = "cpu"
 
+ALIGN_MODEL, METADATA = whisperx.load_align_model(
+    language_code="ka",
+    device=DEVICE
+)
+
+# =========================
+# TEXT SPLIT
+# =========================
+def split_text_smart(text):
+    return re.split(r'(?<=[.,!?])\s+', text)
+
+
+# =========================
+# TIMELINE NORMALIZATION
+# =========================
+def normalize_timeline(words):
+    if not words:
+        return words
+
+    first_valid = next(
+        (w for w in words if (w["end"] - w["start"]) > 0.04),
+        None
+    )
+
+    if first_valid:
+        shift = first_valid["start"]
+
+        for w in words:
+            w["start"] = max(0, w["start"] - shift)
+            w["end"] = max(0, w["end"] - shift)
+
+    durations = [
+        (w["end"] - w["start"]) for w in words if (w["end"] - w["start"]) > 0.01
+    ]
+
+    avg = sum(durations) / len(durations) if durations else 0.2
+
+    MIN_DUR = avg * 0.4
+    MAX_DUR = avg * 2.2
+
+    for i, w in enumerate(words):
+        dur = w["end"] - w["start"]
+
+        if dur < MIN_DUR:
+            w["end"] = w["start"] + MIN_DUR
+        elif dur > MAX_DUR:
+            w["end"] = w["start"] + MAX_DUR
+
+        if i > 0:
+            prev = words[i - 1]
+
+            if w["start"] < prev["end"]:
+                w["start"] = prev["end"]
+
+            if w["end"] <= w["start"]:
+                w["end"] = w["start"] + MIN_DUR
+
+    return words
+
+
+# =========================
+# 🔥 DRIFT FIX (CRITICAL)
+# =========================
+def fit_timeline_to_audio(words, audio_duration):
+    if not words:
+        return words
+
+    last_end = words[-1]["end"]
+
+    if last_end == 0:
+        return words
+
+    scale = audio_duration / last_end
+
+    for w in words:
+        w["start"] *= scale
+        w["end"] *= scale
+
+        # clamp
+        if w["end"] > audio_duration:
+            w["end"] = audio_duration
+
+    return words
+
+
+# =========================
+# ALIGNMENT
+# =========================
+def align_with_whisperx(audio_path, text):
+    try:
+        audio = whisperx.load_audio(audio_path)
+
+        chunks = split_text_smart(text)
+
+        segments = [
+            {"text": chunk.strip(), "start": None, "end": None}
+            for chunk in chunks if chunk.strip()
+        ]
+
+        aligned = whisperx.align(
+            segments,
+            ALIGN_MODEL,
+            METADATA,
+            audio,
+            DEVICE
+        )
+
+        raw_words = aligned.get("word_segments") or []
+
+        words = []
+
+        for w in raw_words:
+            word = w["word"].strip()
+
+            start = float(w["start"])
+            end = float(w["end"])
+
+            if end <= start:
+                end = start + 0.01
+
+            words.append({
+                "word": word,
+                "start": start,
+                "end": end
+            })
+
+        words = normalize_timeline(words)
+
+        return words
+
+    except Exception as e:
+
+        audio = AudioSegment.from_file(audio_path)
+        duration = len(audio) / 1000
+
+        return generate_word_timestamps(text, duration)
+
+
+# =========================
+# LANGUAGE DETECTION
+# =========================
+def detect_language(text):
+    if re.search(r'[\u10D0-\u10FF]', text):
+        return "ka"
+    return "en"
+
+
+# =========================
+# ROMAN → INT
+# =========================
+def roman_to_int(s):
+    roman_map = {
+        'I': 1, 'V': 5, 'X': 10,
+        'L': 50, 'C': 100,
+        'D': 500, 'M': 1000
+    }
+
+    result = 0
+    prev = 0
+
+    for ch in reversed(s.upper()):
+        val = roman_map.get(ch, 0)
+        if val < prev:
+            result -= val
+        else:
+            result += val
+            prev = val
+
+    return result if result > 0 else None
+
+
+# =========================
+# GEORGIAN NUMBERS
+# =========================
 def number_to_georgian(n):
     units = {
         0: "ნული", 1: "ერთი", 2: "ორი", 3: "სამი", 4: "ოთხი",
@@ -33,83 +209,25 @@ def number_to_georgian(n):
 
 
 # =========================
-# LANGUAGE DETECTION
-# =========================
-def detect_language(text):
-    if re.search(r'[\u10D0-\u10FF]', text):
-        return "ka"
-    return "en"
-
-
-# =========================
 # NUMBER NORMALIZATION
 # =========================
 def normalize_numbers(text, lang="en"):
-
-    def adjust_georgian_case(word, next_word):
-        targets = ["თვე", "თვეში", "თვეს", "წელი", "წელს", "კაცი"]
-
-        mapping = {
-            "ერთი": "ერთ",
-            "ორი": "ორ",
-            "სამი": "სამ",
-            "ოთხი": "ოთხ",
-            "ხუთი": "ხუთ",
-            "ექვსი": "ექვს",
-            "შვიდი": "შვიდ",
-            "რვა": "რვა",
-            "ცხრა": "ცხრა",
-            "ათი": "ათ",
-            "თერთმეტი": "თერთმეტ",
-            "თორმეტი": "თორმეტ",
-            "ცამეტი": "ცამეტ",
-            "თოთხმეტი": "თოთხმეტ",
-            "თხუთმეტი": "თხუთმეტ",
-            "თექვსმეტი": "თექვსმეტ",
-            "ჩვიდმეტი": "ჩვიდმეტ",
-            "თვრამეტი": "თვრამეტ",
-            "ცხრამეტი": "ცხრამეტ",
-            "ოცი": "ოც"
-}
-
-        if any(next_word.startswith(t) for t in targets):
-            return mapping.get(word, word)
-
-        return word
 
     def replace_roman(match):
         roman = match.group()
         value = roman_to_int(roman)
 
         if value:
-            try:
-                if lang == "ka":
-                    return number_to_georgian(value)
-                return num2words(value, lang="en")
-            except:
-                return roman
-
+            if lang == "ka":
+                return number_to_georgian(value)
+            return num2words(value, lang="en")
         return roman
 
     def replace_number(match):
         num = int(match.group())
-
-        try:
-            if lang == "ka":
-                word = number_to_georgian(num)
-
-                
-                after = text[match.end():].strip().split(" ")
-                next_word = re.sub(r'[^\w\u10D0-\u10FF]', '', after[0]) if after else ""
-
-                word = adjust_georgian_case(word, next_word)
-
-                return word
-
-            return num2words(num, lang="en")
-
-        except:
-            return match.group()
+        if lang == "ka":
+            return number_to_georgian(num)
+        return num2words(num, lang="en")
 
     text = re.sub(
         r'(?<!\w)[IVXLCDM]+(?!\w)',
@@ -118,23 +236,13 @@ def normalize_numbers(text, lang="en"):
         flags=re.IGNORECASE
     )
 
-    text = re.sub(
-        r'(\d+)-ზე',
-        lambda m: (
-            number_to_georgian(int(m.group(1)))[:-1] + "ზე"
-            if number_to_georgian(int(m.group(1))).endswith("ი")
-            else number_to_georgian(int(m.group(1))) + "ზე"
-        )
-        if lang == "ka"
-        else num2words(int(m.group(1)), lang="en"),
-        text
-    )
-
     text = re.sub(r'\b\d+\b', replace_number, text)
 
     return text
+
+
 # =========================
-# WORD TIMESTAMPS (FAST)
+# FALLBACK TIMESTAMPS
 # =========================
 def generate_word_timestamps(text, duration):
     tokens = re.findall(r"[\w\u10D0-\u10FF']+|[.,!?;]", text)
@@ -142,55 +250,21 @@ def generate_word_timestamps(text, duration):
     if not tokens:
         return []
 
-    weights = []
-    total_weight = 0
+    step = duration / len(tokens)
+
+    result = []
+    current = 0.0
 
     for t in tokens:
-        if t == ",":
-            weight = 1.5
-        elif t == ";":
-            weight = 2.0
-        elif t == ".":
-            weight = 3.0
-        elif t in ["!", "?"]:
-            weight = 3.5
-        else:
-            weight = len(t) ** 1.0
-
-        weights.append(weight)
-        total_weight += weight
-
-    
-    result = []
-    current_time = 0.0
-
-    for t, w in zip(tokens, weights):
-        portion = w / total_weight
-        duration_part = duration * portion
-
-        start = current_time
-        end = current_time + duration_part
-
-       
-        if result:
-            prev_end = result[-1]["end"]
-            if start < prev_end:
-                start = prev_end
-                end = start + duration_part
-
         result.append({
             "word": t,
-            "start": round(start, 3),
-            "end": round(end, 3)
+            "start": round(current, 3),
+            "end": round(current + step, 3)
         })
-
-        current_time = end
-
-    
-    if result:
-        result[-1]["end"] = duration
+        current += step
 
     return result
+
 
 # =========================
 # MAIN FUNCTION
@@ -206,13 +280,9 @@ def generate_voice_with_timestamps(text: str):
     file_path = Path(settings.MEDIA_ROOT) / filename
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
 
-    clean_text = text.strip()
-    lang = detect_language(clean_text)
-    clean_text = normalize_numbers(clean_text, lang)
+    lang = detect_language(text)
+    clean_text = normalize_numbers(text.strip(), lang)
 
-    # =========================
-    # TTS (FAST API)
-    # =========================
     response = requests.post(
         "https://api.cartesia.ai/tts/bytes",
         headers={
@@ -223,11 +293,7 @@ def generate_voice_with_timestamps(text: str):
         json={
             "model_id": "sonic-3",
             "transcript": clean_text,
-            "voice": {
-                "mode": "id",
-                "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"
-                # "speed": 0.85
-            },
+            "voice": {"mode": "id", "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d"},
             "output_format": {
                 "container": "mp3",
                 "encoding": "mp3",
@@ -239,44 +305,24 @@ def generate_voice_with_timestamps(text: str):
     if response.status_code != 200:
         raise Exception(response.text)
 
-    # save audio
     with open(file_path, "wb") as f:
         f.write(response.content)
 
-    # =========================
-    # AUDIO DURATION
-    # =========================
     audio = AudioSegment.from_file(file_path)
-    duration = len(audio) / 1000  
+    duration = len(audio) / 1000
 
-    # =========================
-    # FAST WORD TIMESTAMPS
-    # =========================
-    aligned_words = generate_word_timestamps(clean_text, duration)
+    words = align_with_whisperx(str(file_path), clean_text)
+
+    
+    words = fit_timeline_to_audio(words, duration)
+
+    
+    for w in words:
+        w["start"] = round(w["start"], 3)
+        w["end"] = round(w["end"], 3)
 
     return {
         "audio_url": settings.MEDIA_URL + filename,
-        "words": aligned_words,
+        "words": words,
         "duration": round(duration, 3)
     }
-
-
-def roman_to_int(s):
-    roman_map = {
-        'I': 1, 'V': 5, 'X': 10,
-        'L': 50, 'C': 100,
-        'D': 500, 'M': 1000
-    }
-
-    result = 0
-    prev = 0
-
-    for ch in reversed(s.upper()):
-        val = roman_map.get(ch, 0)
-        if val < prev:
-            result -= val
-        else:
-            result += val
-            prev = val
-
-    return result if result > 0 else None
