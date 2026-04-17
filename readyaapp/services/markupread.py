@@ -296,7 +296,7 @@ def generate_voice_with_timestamps(text: str):
             "voice": {
                 "mode": "id",
                 "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d",
-                "speed": 0.85 
+                "speed": 0.92
             },
             "output_format": {
                 "container": "mp3",
