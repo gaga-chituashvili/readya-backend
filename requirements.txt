@@ -21,7 +21,6 @@ cryptography
 openai
 djangorestframework-simplejwt
 num2words
-whisperx
 torch
 torchaudio
 ffmpeg-python

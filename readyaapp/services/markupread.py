@@ -2,329 +2,203 @@ import requests
 import os
 import uuid
 import re
+import torch
+import torchaudio
 from pathlib import Path
 from django.conf import settings
 from pydub import AudioSegment
 from num2words import num2words
-import whisperx
 
-
-DEVICE = "cpu"
-
-ALIGN_MODEL, METADATA = whisperx.load_align_model(
-    language_code="ka",
-    device=DEVICE
-)
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # =========================
-# TEXT SPLIT
+# MMS ALIGNER (lazy)
 # =========================
-def split_text_smart(text):
-    return re.split(r'(?<=[.,!?])\s+', text)
+_aligner_bundle = None
 
-
-# =========================
-# TIMELINE NORMALIZATION
-# =========================
-def normalize_timeline(words):
-    if not words:
-        return words
-
-    first_valid = next(
-        (w for w in words if (w["end"] - w["start"]) > 0.04),
-        None
-    )
-
-    if first_valid:
-        shift = first_valid["start"]
-
-        for w in words:
-            w["start"] = max(0, w["start"] - shift)
-            w["end"] = max(0, w["end"] - shift)
-
-    durations = [
-        (w["end"] - w["start"]) for w in words if (w["end"] - w["start"]) > 0.01
-    ]
-
-    avg = sum(durations) / len(durations) if durations else 0.2
-
-    MIN_DUR = avg * 0.4
-    MAX_DUR = avg * 2.2
-
-    for i, w in enumerate(words):
-        dur = w["end"] - w["start"]
-
-        if dur < MIN_DUR:
-            w["end"] = w["start"] + MIN_DUR
-        elif dur > MAX_DUR:
-            w["end"] = w["start"] + MAX_DUR
-
-        if i > 0:
-            prev = words[i - 1]
-
-            if w["start"] < prev["end"]:
-                w["start"] = prev["end"]
-
-            if w["end"] <= w["start"]:
-                w["end"] = w["start"] + MIN_DUR
-
-    return words
+def get_aligner():
+    global _aligner_bundle
+    if _aligner_bundle is None:
+        bundle = torchaudio.pipelines.MMS_FA
+        model  = bundle.get_model(with_star=False).to(DEVICE)
+        _aligner_bundle = (model, bundle)
+    return _aligner_bundle
 
 
 # =========================
-# 🔥 DRIFT FIX (CRITICAL)
-# =========================
-def fit_timeline_to_audio(words, audio_duration):
-    if not words:
-        return words
-
-    last_end = words[-1]["end"]
-
-    if last_end == 0:
-        return words
-
-    scale = audio_duration / last_end
-
-    for w in words:
-        w["start"] *= scale
-        w["end"] *= scale
-
-        # clamp
-        if w["end"] > audio_duration:
-            w["end"] = audio_duration
-
-    return words
-
-
-# =========================
-# ALIGNMENT
-# =========================
-def align_with_whisperx(audio_path, text):
-    try:
-        audio = whisperx.load_audio(audio_path)
-
-        chunks = split_text_smart(text)
-
-        segments = [
-            {"text": chunk.strip(), "start": None, "end": None}
-            for chunk in chunks if chunk.strip()
-        ]
-
-        aligned = whisperx.align(
-            segments,
-            ALIGN_MODEL,
-            METADATA,
-            audio,
-            DEVICE
-        )
-
-        raw_words = aligned.get("word_segments") or []
-
-        words = []
-
-        for w in raw_words:
-            word = w["word"].strip()
-
-            start = float(w["start"])
-            end = float(w["end"])
-
-            if end <= start:
-                end = start + 0.01
-
-            words.append({
-                "word": word,
-                "start": start,
-                "end": end
-            })
-
-        words = normalize_timeline(words)
-
-        return words
-
-    except Exception as e:
-
-        audio = AudioSegment.from_file(audio_path)
-        duration = len(audio) / 1000
-
-        return generate_word_timestamps(text, duration)
-
-
-# =========================
-# LANGUAGE DETECTION
+# HELPERS
 # =========================
 def detect_language(text):
-    if re.search(r'[\u10D0-\u10FF]', text):
-        return "ka"
-    return "en"
+    return "ka" if re.search(r'[\u10D0-\u10FF]', text) else "en"
 
 
-# =========================
-# ROMAN → INT
-# =========================
 def roman_to_int(s):
-    roman_map = {
-        'I': 1, 'V': 5, 'X': 10,
-        'L': 50, 'C': 100,
-        'D': 500, 'M': 1000
-    }
-
-    result = 0
-    prev = 0
-
+    m = {'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}
+    result = prev = 0
     for ch in reversed(s.upper()):
-        val = roman_map.get(ch, 0)
-        if val < prev:
-            result -= val
-        else:
-            result += val
-            prev = val
-
+        v = m.get(ch, 0)
+        result += v if v >= prev else -v
+        prev = v
     return result if result > 0 else None
 
 
-# =========================
-# GEORGIAN NUMBERS
-# =========================
 def number_to_georgian(n):
     units = {
-        0: "ნული", 1: "ერთი", 2: "ორი", 3: "სამი", 4: "ოთხი",
-        5: "ხუთი", 6: "ექვსი", 7: "შვიდი", 8: "რვა", 9: "ცხრა",
-        10: "ათი", 11: "თერთმეტი", 12: "თორმეტი", 13: "ცამეტი",
-        14: "თოთხმეტი", 15: "თხუთმეტი", 16: "თექვსმეტი",
-        17: "ჩვიდმეტი", 18: "თვრამეტი", 19: "ცხრამეტი",
-        20: "ოცი", 30: "ოცდაათი", 40: "ორმოცი",
-        50: "ორმოცდაათი", 60: "სამოცი", 70: "სამოცდაათი",
-        80: "ოთხმოცი", 90: "ოთხმოცდაათი"
+        0:"ნული",1:"ერთი",2:"ორი",3:"სამი",4:"ოთხი",5:"ხუთი",
+        6:"ექვსი",7:"შვიდი",8:"რვა",9:"ცხრა",10:"ათი",11:"თერთმეტი",
+        12:"თორმეტი",13:"ცამეტი",14:"თოთხმეტი",15:"თხუთმეტი",
+        16:"თექვსმეტი",17:"ჩვიდმეტი",18:"თვრამეტი",19:"ცხრამეტი",
+        20:"ოცი",30:"ოცდაათი",40:"ორმოცი",50:"ორმოცდაათი",
+        60:"სამოცი",70:"სამოცდაათი",80:"ოთხმოცი",90:"ოთხმოცდაათი",
     }
-
     if n in units:
         return units[n]
-
     if n < 100:
-        tens = (n // 10) * 10
-        remainder = n % 10
-        return units[tens] + "და" + units[remainder]
-
+        return units[(n//10)*10] + "და" + units[n%10]
     return str(n)
 
 
-# =========================
-# NUMBER NORMALIZATION
-# =========================
 def normalize_numbers(text, lang="en"):
+    def rr(m):
+        v = roman_to_int(m.group())
+        return (number_to_georgian(v) if lang=="ka" else num2words(v,lang="en")) if v else m.group()
+    def rn(m):
+        n = int(m.group())
+        return number_to_georgian(n) if lang=="ka" else num2words(n,lang="en")
+    text = re.sub(r'(?<!\w)[IVXLCDM]+(?!\w)', rr, text, flags=re.IGNORECASE)
+    return re.sub(r'\b\d+\b', rn, text)
 
-    def replace_roman(match):
-        roman = match.group()
-        value = roman_to_int(roman)
 
-        if value:
-            if lang == "ka":
-                return number_to_georgian(value)
-            return num2words(value, lang="en")
-        return roman
-
-    def replace_number(match):
-        num = int(match.group())
-        if lang == "ka":
-            return number_to_georgian(num)
-        return num2words(num, lang="en")
-
-    text = re.sub(
-        r'(?<!\w)[IVXLCDM]+(?!\w)',
-        replace_roman,
-        text,
-        flags=re.IGNORECASE
-    )
-
-    text = re.sub(r'\b\d+\b', replace_number, text)
-
-    return text
+def get_mp3_encoder_delay(mp3_path: str) -> float:
+    try:
+        with open(mp3_path, "rb") as f:
+            data = f.read(4096)
+        for tag in (b"Xing", b"Info"):
+            pos = data.find(tag)
+            if pos == -1:
+                continue
+            if data[pos+120:pos+124] != b"LAME":
+                continue
+            gp = pos + 141
+            if gp + 3 > len(data):
+                continue
+            delay_samples = (data[gp] << 4) | (data[gp+1] >> 4)
+            for i in range(len(data)-3):
+                if data[i] == 0xFF and (data[i+1] & 0xE0) == 0xE0:
+                    sr = {0:44100,1:48000,2:32000,3:0}.get((data[i+2]>>2)&0x3, 44100)
+                    if sr:
+                        return delay_samples / sr
+    except Exception:
+        pass
+    return 576 / 44100
 
 
 # =========================
-# FALLBACK TIMESTAMPS
+# MMS ALIGNMENT
 # =========================
-def generate_word_timestamps(text, duration):
-    tokens = re.findall(r"[\w\u10D0-\u10FF']+|[.,!?;]", text)
+def align_with_mms(mp3_path: str, text: str, encoder_delay: float) -> list:
+    model, bundle = get_aligner()
 
-    if not tokens:
-        return []
+    waveform, sr = torchaudio.load(mp3_path)
+    if sr != bundle.sample_rate:
+        waveform = torchaudio.transforms.Resample(sr, bundle.sample_rate)(waveform)
+    if waveform.shape[0] > 1:
+        waveform = waveform.mean(dim=0, keepdim=True)
+    waveform = waveform.to(DEVICE)
 
-    step = duration / len(tokens)
+    words = text.strip().split()
+
+    with torch.inference_mode():
+        emission, _ = model(waveform)
+
+    try:
+        alignments, _ = bundle.get_aligner()(
+            emission, bundle.get_tokenizer()(words)
+        )
+    except Exception:
+        dur = waveform.shape[-1] / bundle.sample_rate
+        return _uniform_fallback(words, dur)
+
+    # frame → seconds — resampled waveform-ის sample count გამოვიყენოთ
+    spf = waveform.shape[-1] / (emission.shape[1] * bundle.sample_rate)
 
     result = []
-    current = 0.0
-
-    for t in tokens:
+    for w, a in zip(words, alignments):
+        start = max(0.0, a.start * spf - encoder_delay)
+        end   = max(0.0, a.end   * spf - encoder_delay)
         result.append({
-            "word": t,
-            "start": round(current, 3),
-            "end": round(current + step, 3)
+            "word":  w,
+            "start": round(float(start), 3),
+            "end":   round(float(end),   3),
         })
-        current += step
 
     return result
 
 
+def _uniform_fallback(words, duration):
+    step = duration / max(len(words), 1)
+    return [
+        {"word": w, "start": round(i*step, 3), "end": round((i+1)*step, 3)}
+        for i, w in enumerate(words)
+    ]
+
+
 # =========================
-# MAIN FUNCTION
+# MAIN
 # =========================
 def generate_voice_with_timestamps(text: str):
-
     cartesia_key = os.getenv("CARTESIA_API_KEY")
-
     if not cartesia_key:
         raise ValueError("CARTESIA_API_KEY not set")
 
-    filename = f"{uuid.uuid4()}.mp3"
-    file_path = Path(settings.MEDIA_ROOT) / filename
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+    filename = f"{uuid.uuid4()}.mp3"
+    mp3_path = Path(settings.MEDIA_ROOT) / filename
 
-    lang = detect_language(text)
+    lang       = detect_language(text)
     clean_text = normalize_numbers(text.strip(), lang)
 
+    
     response = requests.post(
         "https://api.cartesia.ai/tts/bytes",
         headers={
-            "Authorization": f"Bearer {cartesia_key}",
+            "Authorization":    f"Bearer {cartesia_key}",
             "Cartesia-Version": "2025-04-16",
-            "Content-Type": "application/json"
+            "Content-Type":     "application/json",
         },
         json={
-            "model_id": "sonic-3",
+            "model_id":   "sonic-3",
             "transcript": clean_text,
             "voice": {
-                "mode": "id",
-                "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d",
-                "speed": 0.92
+                "mode":  "id",
+                "id":    "95d51f79-c397-46f9-b49a-23763d3eaa2d",
+                "speed": 0.92,
             },
             "output_format": {
-                "container": "mp3",
-                "encoding": "mp3",
-                "sample_rate": 44100
-            }
-        }
+                "container":   "mp3",
+                "encoding":    "mp3",
+                "sample_rate": 44100,
+            },
+        },
     )
 
     if response.status_code != 200:
-        raise Exception(response.text)
+        raise Exception(f"Cartesia error {response.status_code}: {response.text}")
 
-    with open(file_path, "wb") as f:
+    with open(mp3_path, "wb") as f:
         f.write(response.content)
 
-    audio = AudioSegment.from_file(file_path)
+    
+    encoder_delay = get_mp3_encoder_delay(str(mp3_path))
+
+    
+    words = align_with_mms(str(mp3_path), clean_text, encoder_delay)
+
+    audio    = AudioSegment.from_mp3(str(mp3_path))
     duration = len(audio) / 1000
-
-    words = align_with_whisperx(str(file_path), clean_text)
-
-    words = fit_timeline_to_audio(words, duration)
-
-    for w in words:
-        w["start"] = round(w["start"], 3)
-        w["end"] = round(w["end"], 3)
 
     return {
         "audio_url": settings.MEDIA_URL + filename,
-        "words": words,
-        "duration": round(duration, 3)
+        "words":     words,
+        "duration":  round(duration, 3),
     }
