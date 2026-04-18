@@ -21,3 +21,4 @@ djangorestframework-simplejwt
 num2words
 torch
 torchaudio
+numpy
