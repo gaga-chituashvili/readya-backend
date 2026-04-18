@@ -189,13 +189,20 @@ def generate_voice_with_timestamps(text: str):
         f.write(response.content)
 
     
-    encoder_delay = get_mp3_encoder_delay(str(mp3_path))
+    # encoder_delay = get_mp3_encoder_delay(str(mp3_path))
 
     
-    words = align_with_mms(str(mp3_path), clean_text, encoder_delay)
+    # words = align_with_mms(str(mp3_path), clean_text, encoder_delay)
 
     audio    = AudioSegment.from_mp3(str(mp3_path))
     duration = len(audio) / 1000
+
+    if os.getenv("ENV", "production") == "production":
+        tokens = re.findall(r"[\w\u10D0-\u10FF']+|[.,!?;]", clean_text)
+        words = _uniform_fallback(tokens, duration)
+    else:
+        encoder_delay = get_mp3_encoder_delay(str(mp3_path))
+        words = align_with_mms(str(mp3_path), clean_text, encoder_delay)
 
     return {
         "audio_url": settings.MEDIA_URL + filename,
