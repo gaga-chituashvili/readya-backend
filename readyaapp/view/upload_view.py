@@ -13,7 +13,7 @@ from django.conf import settings
 from django.core.files import File
 from django.core.files.base import ContentFile
 
-from readyaapp.services.markupread import generate_voice_with_timestamps
+from readyaapp.services.voice import generate_voice
 from readyaapp.services.email import send_email_with_mp3
 from readyaapp.services.pdf_reader import extract_text_from_pdf
 from readyaapp.services.docx_reader import extract_text_from_docx
@@ -104,7 +104,7 @@ class UploadDocumentView(APIView):
             if not text or not text.strip():
                 return Response({"error": "No text extracted"}, status=400)
 
-            data = generate_voice_with_timestamps(text)
+            data = generate_voice(text)
 
             if not data or "audio_url" not in data:
                 raise ValueError("Invalid response from voice generator")
@@ -140,7 +140,6 @@ class UploadDocumentView(APIView):
                 os.remove(temp_path)
 
             # ===== SAVE DATA =====
-            doc.word_timestamps = data.get("words", [])
             doc.text_content = text
             doc.status = "done"
             doc.save()
@@ -149,7 +148,7 @@ class UploadDocumentView(APIView):
             try:
                 threading.Thread(
                     target=send_email_with_mp3,
-                    args=(email, doc.mp3_file.path, player_url),
+                    args=(email, doc.mp3_file.path),
                     daemon=True
                 ).start()
             except Exception:
@@ -160,7 +159,6 @@ class UploadDocumentView(APIView):
                 "status": doc.status,
                 "file_type": doc.file_type,
                 "mp3_url": doc.mp3_file.url,
-                "words": doc.word_timestamps
             }, status=201)
 
         except Exception as e:

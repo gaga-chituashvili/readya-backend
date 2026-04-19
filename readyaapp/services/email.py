@@ -1,14 +1,11 @@
 from django.core.mail import EmailMessage
 from django.conf import settings
 
-def send_email_with_mp3(to_email: str, mp3_path: str, player_url: str):
+def send_email_with_mp3(to_email: str, mp3_path: str):
     email = EmailMessage(
         subject="🎧 Your audio is ready — Readya",
         body=f"""
 PDF successfully converted to audio file 🎉
-
-👉 Listen with highlighted reading:
-{player_url}
 
 MP3 is attached below.
 """,
