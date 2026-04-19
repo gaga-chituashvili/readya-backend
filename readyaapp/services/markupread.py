@@ -132,45 +132,57 @@ _PUNCT_MAP = str.maketrans({
 
 _SUFFIX_PAT = "|".join(_CASE_SUFFIXES)
 
+
 def detect_language(text: str) -> str:
-    return "ka" if re.search(r"[\u10D0-\u10FF]", text) else "en"
+    if re.search(r"[\u10D0-\u10FF]", text):
+        return "ka"
+    if re.search(r"[\u0400-\u04FF]", text):
+        return "ru"
+    return "en"
+
+
+_VOICE_CONFIG = {
+    "ka": {
+        "language": "ka",
+        "voice": {"mode": "id", "id": "95d51f79-c397-46f9-b49a-23763d3eaa2d", "speed": 0.92},
+    },
+    "en": {
+        "language": "en",
+        "voice": {"mode": "id", "id": "f786b574-daa5-4673-aa0c-cbe3e8534c02", "speed": 0.92},
+    },
+    "ru": {
+        "language": "ru",
+        "voice": {"mode": "id", "id": "e07c00bc-4134-4eae-9ea4-1a55fb45746b", "speed": 0.92},
+    },
+}
+
 
 def normalize_text(text: str, lang: str) -> str:
-   
     text = text.translate(_PUNCT_MAP)
-
-    
     text = re.sub(r"\s+", " ", text).strip()
-
-    
     text = re.sub(
         r"\b(\d{1,3}(?:,\d{3})+)\b",
         lambda m: m.group().replace(",", ""),
         text,
     )
 
-    
-    if lang != "ka":
-        return re.sub(r"\b\d+\b", lambda m: num2words(int(m.group()), lang="en"), text)
+    if lang in ("ru", "en"):
+        return re.sub(r"\b\d+\b", lambda m: num2words(int(m.group()), lang=lang), text)
 
 
-
-   
     def _dash_word(m: re.Match) -> str:
         word = m.group(2)
         if word in _CASE_SUFFIX_SET:
-            return m.group() 
+            return m.group()
         return _stem(number_to_georgian(int(m.group(1)))) + word
 
     text = re.sub(r"\b(\d+)-([\u10D0-\u10FF]+)", _dash_word, text)
 
-  
     text = re.sub(
         rf"\b(\d+)-({_SUFFIX_PAT})\b",
         lambda m: _apply_case(number_to_georgian(int(m.group(1))), m.group(2)),
         text,
     )
-
 
     text = re.sub(
         r"\b(\d+)\s+([\u10D0-\u10FF]+)",
@@ -178,10 +190,8 @@ def normalize_text(text: str, lang: str) -> str:
         text,
     )
 
-    
     text = re.sub(r"\b\d+\b", lambda m: number_to_georgian(int(m.group())), text)
 
-    
     def _roman_ordinal(m: re.Match) -> str:
         v = _roman_to_int(m.group(1))
         if not v: return m.group()
@@ -189,7 +199,6 @@ def normalize_text(text: str, lang: str) -> str:
 
     text = _ROMAN_ORDINAL_RE.sub(_roman_ordinal, text)
 
-   
     def _roman_case(m: re.Match) -> str:
         v = _roman_to_int(m.group(1))
         if not v: return m.group()
@@ -198,7 +207,6 @@ def normalize_text(text: str, lang: str) -> str:
 
     text = _ROMAN_CASE_RE.sub(_roman_case, text)
 
-    
     text = _ROMAN_PLAIN_RE.sub(
         lambda m: number_to_georgian(_roman_to_int(m.group())) if _roman_to_int(m.group()) else m.group(),
         text,
@@ -222,6 +230,7 @@ def generate_voice(text: str) -> dict:
 
     lang       = detect_language(text)
     clean_text = normalize_text(text, lang)
+    cfg        = _VOICE_CONFIG[lang]
 
     logger.debug("TTS → lang=%s | %s", lang, clean_text[:300])
 
@@ -236,11 +245,8 @@ def generate_voice(text: str) -> dict:
             json={
                 "model_id":   "sonic-3",
                 "transcript": clean_text,
-                "voice": {
-                    "mode":  "id",
-                    "id":    "95d51f79-c397-46f9-b49a-23763d3eaa2d",
-                    "speed": 0.92,
-                },
+                "language":   cfg["language"],
+                "voice":      cfg["voice"],
                 "output_format": {
                     "container":   "mp3",
                     "encoding":    "mp3",
