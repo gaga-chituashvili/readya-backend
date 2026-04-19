@@ -19,6 +19,6 @@ cryptography
 openai
 djangorestframework-simplejwt
 num2words
-torch
-torchaudio
+# torch
+# torchaudio
 numpy
