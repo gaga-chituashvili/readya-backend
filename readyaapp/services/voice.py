@@ -218,7 +218,7 @@ def normalize_text(text: str, lang: str) -> str:
 # =========================
 # MAIN
 # =========================
-def generate_voice(text: str) -> dict:
+def generate_voice(text: str, speed: float = 0.92) -> dict:
     cartesia_key = os.getenv("CARTESIA_API_KEY")
     if not cartesia_key:
         raise ValueError("CARTESIA_API_KEY is not set")
@@ -246,7 +246,7 @@ def generate_voice(text: str) -> dict:
                 "model_id":   "sonic-3",
                 "transcript": clean_text,
                 "language":   cfg["language"],
-                "voice":      cfg["voice"],
+                "voice": {**cfg["voice"], "speed": speed},
                 "output_format": {
                     "container":   "mp3",
                     "encoding":    "mp3",
