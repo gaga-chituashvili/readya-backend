@@ -12,11 +12,13 @@ django-cors-headers
 pytesseract
 Pillow
 dj-database-url
-azure-cognitiveservices-speech
-google-cloud-texttospeech
 google-generativeai
-drf-spectacular      
+drf-spectacular
 pydub
 cryptography
 openai
 djangorestframework-simplejwt
+num2words
+# torch
+# torchaudio
+numpy

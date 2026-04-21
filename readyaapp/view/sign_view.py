@@ -21,6 +21,9 @@ from readyaapp.serializers.sign_serializer import PasswordResetRequestSerializer
 
 User = get_user_model()
 
+ACCESS_TOKEN_MAX_AGE = 60 * 60     
+REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 7 
+
 #-------------- registration view -------------------
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -40,6 +43,7 @@ class RegisterView(generics.CreateAPIView):
             httponly=True,
             secure=True,
             samesite="None",
+            max_age=ACCESS_TOKEN_MAX_AGE,
             domain=".readya.me"
         )
 
@@ -49,6 +53,7 @@ class RegisterView(generics.CreateAPIView):
             httponly=True,
             secure=True,
             samesite="None",
+            max_age=REFRESH_TOKEN_MAX_AGE,
             domain=".readya.me"
         )
 
@@ -84,6 +89,7 @@ class LoginView(generics.GenericAPIView):
             httponly=True,
             secure=True, 
             samesite="None",
+            max_age=ACCESS_TOKEN_MAX_AGE,
             domain=".readya.me"
         )
 
@@ -94,6 +100,7 @@ class LoginView(generics.GenericAPIView):
             httponly=True,
             secure=True, 
             samesite="None",
+            max_age=REFRESH_TOKEN_MAX_AGE,
             domain=".readya.me"
         )
 
@@ -226,6 +233,7 @@ def google_auth(request):
             httponly=True,
             secure=True,
             samesite="None",
+            max_age=ACCESS_TOKEN_MAX_AGE,
             domain=".readya.me"
 
         )
@@ -236,6 +244,7 @@ def google_auth(request):
             httponly=True,
             secure=True,
             samesite="None",
+            max_age=REFRESH_TOKEN_MAX_AGE,
             domain=".readya.me"
 
         )
@@ -314,3 +323,31 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         user.save()
 
         return Response({"detail": "Password changed successfully"})
+    
+
+
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+ 
+    def post(self, request):
+        refresh_token = request.COOKIES.get("refresh_token")
+        if not refresh_token:
+            return Response({"error": "No refresh token"}, status=401)
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_token = str(refresh.access_token)
+        except Exception:
+            return Response({"error": "Invalid refresh token"}, status=401)
+ 
+        response = Response({"detail": "Token refreshed"})
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="None",
+            max_age=ACCESS_TOKEN_MAX_AGE,
+            domain=".readya.me"
+        )
+        return response
