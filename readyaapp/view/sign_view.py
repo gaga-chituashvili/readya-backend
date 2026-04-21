@@ -323,3 +323,31 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         user.save()
 
         return Response({"detail": "Password changed successfully"})
+    
+
+
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+ 
+    def post(self, request):
+        refresh_token = request.COOKIES.get("refresh_token")
+        if not refresh_token:
+            return Response({"error": "No refresh token"}, status=401)
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_token = str(refresh.access_token)
+        except Exception:
+            return Response({"error": "Invalid refresh token"}, status=401)
+ 
+        response = Response({"detail": "Token refreshed"})
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="None",
+            max_age=ACCESS_TOKEN_MAX_AGE,
+            domain=".readya.me"
+        )
+        return response

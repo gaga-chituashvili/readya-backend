@@ -1,5 +1,5 @@
 from django.urls import path
-from readyaapp.view.sign_view import LoginView, LogoutView, PasswordResetConfirmView, ProfileView, RegisterView, google_auth,PasswordResetRequestView
+from readyaapp.view.sign_view import CookieTokenRefreshView, LoginView, LogoutView, PasswordResetConfirmView, ProfileView, RegisterView, google_auth,PasswordResetRequestView
 from .views import   home
 from readyaapp.view.upload_view import UploadDocumentView
 from readyaapp.view.streammp3_view import stream_mp3
@@ -35,4 +35,5 @@ urlpatterns = [
     path("auth/google/", google_auth, name="google_auth"),
     path("password-reset/", PasswordResetRequestView.as_view(), name="password_reset"),
     path("password-reset-confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
+    path("token/refresh/", CookieTokenRefreshView.as_view(), name="token_refresh"),
 ]
