@@ -21,6 +21,9 @@ from readyaapp.serializers.sign_serializer import PasswordResetRequestSerializer
 
 User = get_user_model()
 
+ACCESS_TOKEN_MAX_AGE = 60 * 60     
+REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 7 
+
 #-------------- registration view -------------------
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -40,6 +43,7 @@ class RegisterView(generics.CreateAPIView):
             httponly=True,
             secure=True,
             samesite="None",
+            max_age=ACCESS_TOKEN_MAX_AGE,
             domain=".readya.me"
         )
 
@@ -49,6 +53,7 @@ class RegisterView(generics.CreateAPIView):
             httponly=True,
             secure=True,
             samesite="None",
+            max_age=REFRESH_TOKEN_MAX_AGE,
             domain=".readya.me"
         )
 
@@ -84,6 +89,7 @@ class LoginView(generics.GenericAPIView):
             httponly=True,
             secure=True, 
             samesite="None",
+            max_age=ACCESS_TOKEN_MAX_AGE,
             domain=".readya.me"
         )
 
@@ -94,6 +100,7 @@ class LoginView(generics.GenericAPIView):
             httponly=True,
             secure=True, 
             samesite="None",
+            max_age=REFRESH_TOKEN_MAX_AGE,
             domain=".readya.me"
         )
 
@@ -226,6 +233,7 @@ def google_auth(request):
             httponly=True,
             secure=True,
             samesite="None",
+            max_age=ACCESS_TOKEN_MAX_AGE,
             domain=".readya.me"
 
         )
@@ -236,6 +244,7 @@ def google_auth(request):
             httponly=True,
             secure=True,
             samesite="None",
+            max_age=REFRESH_TOKEN_MAX_AGE,
             domain=".readya.me"
 
         )
