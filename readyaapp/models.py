@@ -42,6 +42,8 @@ class AudioDocument(models.Model):
         ("failed", "Failed"),
     )
 
+    
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField()
 
@@ -57,6 +59,14 @@ class AudioDocument(models.Model):
 
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending_payment")
+
+    user = models.ForeignKey(
+    "User",
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name="documents"
+    )
 
     payment_status = models.CharField(
         max_length=20,

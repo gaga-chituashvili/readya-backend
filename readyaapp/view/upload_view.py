@@ -40,6 +40,10 @@ class UploadDocumentView(APIView):
         user = request.user
         if not user or not user.is_authenticated:
             return Response({"error": "Unauthorized"}, status=401)
+        
+
+        doc.user = user
+        doc.save(update_fields=["email", "user"])
 
        
         # if not user.has_active_subscription():

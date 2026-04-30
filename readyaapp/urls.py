@@ -1,4 +1,5 @@
 from django.urls import path
+from readyaapp.view.library_view import DocumentDetailView, UserDocumentsView
 from readyaapp.view.sign_view import CookieTokenRefreshView, LoginView, LogoutView, PasswordResetConfirmView, ProfileView, RegisterView, google_auth,PasswordResetRequestView
 from .views import   home
 from readyaapp.view.upload_view import UploadDocumentView
@@ -8,11 +9,14 @@ from readyaapp.view.generatevoice_view import generate_voice
 from readyaapp.view.openai_view import chat_ai
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+
 urlpatterns = [
     path('', home, name='home'),
     path('upload/', UploadDocumentView.as_view(), name='upload_document'),
+    path('documents/', UserDocumentsView.as_view(), name='user_documents'),
     path('stream/<uuid:doc_id>/', stream_mp3, name='stream_mp3'),
     path('voice/<uuid:doc_id>/', generate_voice, name='generate_voice'),
+    path('document/<uuid:doc_id>/', DocumentDetailView.as_view(), name='document_detail'),
 
     # Payment endpoints
     path('payment/create/', create_payment_view, name='create_payment'),
@@ -36,4 +40,6 @@ urlpatterns = [
     path("password-reset/", PasswordResetRequestView.as_view(), name="password_reset"),
     path("password-reset-confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("token/refresh/", CookieTokenRefreshView.as_view(), name="token_refresh"),
+
+
 ]
