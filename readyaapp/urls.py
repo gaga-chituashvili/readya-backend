@@ -23,8 +23,8 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 
     # AI chat endpoints
-    path('chat/<uuid:doc_id>/', chat_ai, name='chat_with_ai'),
-    path('chat/', chat_ai, name='chat_general_outid'),
+    path('api/chat/<uuid:doc_id>/', chat_ai, name='chat_with_ai'),
+    path('api/chat/', chat_ai, name='chat_general_outid'),
    
 
     # Authentication endpoints

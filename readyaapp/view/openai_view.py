@@ -1,5 +1,5 @@
 from readyaapp.services.openai_chat import chat_with_document
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes,permission_classes
 from readyaapp.services.openai_chat import chat_with_document
 from rest_framework.response import Response
 from rest_framework.response import Response
@@ -10,10 +10,13 @@ from readyaapp.services.image_reader import extract_text_from_image
 from readyaapp.services.openai_chat import chat_with_document
 from rest_framework.decorators import api_view
 from readyaapp.services.openai_chat import chat_with_document
+from rest_framework.permissions import AllowAny
 
 
 
 @api_view(['POST'])
+@authentication_classes([])       
+@permission_classes([AllowAny])   
 def chat_ai(request, doc_id=None):
     try:
         user_message = request.data.get('message')
