@@ -238,18 +238,18 @@ def generate_voice(text: str, speed: float = 0.92) -> dict:
         response = requests.post(
             "https://api.cartesia.ai/tts/bytes",
             headers={
-                "Authorization":    f"Bearer {cartesia_key}",
+                "Authorization": f"Bearer {cartesia_key}",
                 "Cartesia-Version": "2025-04-16",
-                "Content-Type":     "application/json",
+                "Content-Type": "application/json",
             },
             json={
-                "model_id":   "sonic-3",
+                "model_id": "sonic-3",
                 "transcript": clean_text,
-                "language":   cfg["language"],
+                "language": cfg["language"],
                 "voice": {**cfg["voice"], "speed": speed},
                 "output_format": {
-                    "container":   "mp3",
-                    "encoding":    "mp3",
+                    "container": "mp3",
+                    "encoding": "mp3",
                     "sample_rate": 44100,
                 },
             },
@@ -262,13 +262,14 @@ def generate_voice(text: str, speed: float = 0.92) -> dict:
     mp3_path.write_bytes(response.content)
 
     try:
-        audio    = AudioSegment.from_mp3(str(mp3_path))
+        audio = AudioSegment.from_mp3(str(mp3_path))
         duration = round(len(audio) / 1000, 3)
     except Exception as e:
         mp3_path.unlink(missing_ok=True)
         raise RuntimeError(f"Audio decode failed: {e}") from e
 
     return {
-        "audio_url": settings.MEDIA_URL + filename,
-        "duration":  duration,
+        "file_path": str(mp3_path),
+        "filename": filename,
+        "duration": duration,
     }

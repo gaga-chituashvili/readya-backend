@@ -1,8 +1,6 @@
 from pathlib import Path
 import os
 import threading
-import requests
-import traceback
 
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -11,7 +9,6 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.core.files import File
-from django.core.files.base import ContentFile
 
 from readyaapp.services.voice import generate_voice
 from readyaapp.services.email import send_email_with_mp3
@@ -26,7 +23,6 @@ class UploadDocumentView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-
         document_id = request.data.get("document_id")
 
         if not document_id:
@@ -40,16 +36,10 @@ class UploadDocumentView(APIView):
         user = request.user
         if not user or not user.is_authenticated:
             return Response({"error": "Unauthorized"}, status=401)
-        
 
         doc.user = user
-        doc.save(update_fields=["email", "user"])
-
-       
-        # if not user.has_active_subscription():
-        #     return Response({"error": "Payment required"}, status=402)
-
-        email = user.email
+        doc.email = user.email
+        doc.save(update_fields=["user", "email"])
 
         file = request.FILES.get("file")
         text_content = request.data.get("text")
@@ -57,17 +47,12 @@ class UploadDocumentView(APIView):
 
         if file and not upload_image:
             ext = file.name.lower().split(".")[-1]
-            if ext in ['jpg', 'jpeg', 'png', 'webp']:
+            if ext in ["jpg", "jpeg", "png", "webp"]:
                 upload_image = file
                 file = None
 
         if not file and not text_content and not upload_image:
             return Response({"error": "file, text or image is required"}, status=400)
-
-        doc.email = email
-        doc.save(update_fields=["email"])
-
-        player_url = f"{settings.FRONTEND_URL}/player/{doc.id}"
 
         try:
             # ===== TEXT =====
@@ -108,51 +93,33 @@ class UploadDocumentView(APIView):
             if not text or not text.strip():
                 return Response({"error": "No text extracted"}, status=400)
 
+            # ===== GENERATE AUDIO =====
             data = generate_voice(text)
 
-            if not data or "audio_url" not in data:
+            if not data or "file_path" not in data:
                 raise ValueError("Invalid response from voice generator")
 
-            audio_url = data.get("audio_url")
+            file_path = data["file_path"]
+            filename = data["filename"]
 
-            if not audio_url:
-                raise ValueError("audio_url is empty")
+            # ===== SAVE TO CLOUDINARY =====
+            with open(file_path, "rb") as f:
+                doc.mp3_file.save(filename, File(f), save=False)
 
-            filename = audio_url.split("/")[-1]
+            # remove temp file
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
-            # ===== HANDLE AUDIO =====
-            if audio_url.startswith("http"):
-                response = requests.get(audio_url, timeout=20)
-
-                if response.status_code != 200:
-                    raise ValueError(f"Download failed: {response.status_code}")
-
-                doc.mp3_file.save(
-                    filename,
-                    ContentFile(response.content),
-                    save=False
-                )
-            else:
-                temp_path = os.path.join(settings.MEDIA_ROOT, filename)
-
-                if not os.path.exists(temp_path):
-                    raise ValueError("Generated file missing")
-
-                with open(temp_path, "rb") as f:
-                    doc.mp3_file.save(filename, File(f), save=False)
-
-                os.remove(temp_path)
-
-            # ===== SAVE DATA =====
+            # ===== SAVE DB =====
             doc.text_content = text
             doc.status = "done"
             doc.save()
 
-            # ===== EMAIL (background) =====
+            # ===== EMAIL =====
             try:
                 threading.Thread(
                     target=send_email_with_mp3,
-                    args=(email, doc.mp3_file.url),
+                    args=(doc.email, doc.mp3_file.url),
                     daemon=True
                 ).start()
             except Exception:
@@ -166,7 +133,6 @@ class UploadDocumentView(APIView):
             }, status=201)
 
         except Exception as e:
-            traceback.print_exc()  # ← დაამატე
             doc.status = "failed"
             doc.error_message = str(e)
             doc.save()

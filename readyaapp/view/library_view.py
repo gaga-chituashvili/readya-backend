@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from readyaapp.models import AudioDocument
+from django.conf import settings
 
 class UserDocumentsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -28,6 +29,7 @@ class UserDocumentsView(APIView):
 
 
 
+
 class DocumentDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -39,7 +41,13 @@ class DocumentDetailView(APIView):
 
         return Response({
             "id": str(doc.id),
-            "audio_url": request.build_absolute_uri(doc.mp3_file.url) if doc.mp3_file else None,
+
+           
+            "stream_url": f"{settings.BACKEND_URL}/stream/{doc.id}/",
+
+           
+            "mp3_url": doc.mp3_file.url if doc.mp3_file else None,
+
             "words": doc.word_timestamps or [],
             "status": doc.status,
             "file_type": doc.file_type,
