@@ -41,7 +41,7 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
-# STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 
 INSTALLED_APPS = [
@@ -70,7 +70,7 @@ CLOUDINARY_STORAGE = {
     "EXCLUDE_DELETE_ORPHANED_MEDIA_PATHS": ("uploads/mp3/",),
 }
 
-# DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.RawMediaCloudinaryStorage"
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.RawMediaCloudinaryStorage"
 
 
 REST_FRAMEWORK = {
@@ -290,11 +290,3 @@ os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 
 
-STORAGES = {
-    "default": {
-        "BACKEND": "cloudinary_storage.storage.RawMediaCloudinaryStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-    },
-}
