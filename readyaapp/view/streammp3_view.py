@@ -11,7 +11,7 @@ def stream_mp3(request, doc_id):
             raise Http404
 
         return FileResponse(
-            doc.mp3_file.open("rb"),  # 👈 ეს ჯობია ვიდრე open(path)
+            doc.mp3_file.open("rb"),
             content_type="audio/mpeg"
         )
     except AudioDocument.DoesNotExist:
