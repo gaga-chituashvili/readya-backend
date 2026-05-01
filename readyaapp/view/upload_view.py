@@ -166,6 +166,7 @@ class UploadDocumentView(APIView):
             }, status=201)
 
         except Exception as e:
+            traceback.print_exc()  # ← დაამატე
             doc.status = "failed"
             doc.error_message = str(e)
             doc.save()
