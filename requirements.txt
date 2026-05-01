@@ -23,3 +23,4 @@ num2words
 # torchaudio
 numpy
 cloudinary
+django-cloudinary-storage
