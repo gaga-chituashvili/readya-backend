@@ -244,7 +244,7 @@ def google_auth(request):
             httponly=True,
             secure=True,
             samesite="None",
-            max_age=ACCESS_TOKEN_MAX_AGE,
+            max_age=REFRESH_TOKEN_MAX_AGE,
             domain=".readya.me"
 
         )
