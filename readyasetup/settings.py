@@ -65,10 +65,12 @@ CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
     "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
     "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
+    "MEDIA_TAG": "media",
+    "INVALID_VIDEO_ERROR_MESSAGE": "Please upload a valid video or audio file.",
+    "EXCLUDE_DELETE_ORPHANED_MEDIA_PATHS": ("uploads/mp3/",),
 }
 
-# DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-
+# DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.RawMediaCloudinaryStorage"
 
 
 REST_FRAMEWORK = {
@@ -290,7 +292,7 @@ os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 STORAGES = {
     "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        "BACKEND": "cloudinary_storage.storage.RawMediaCloudinaryStorage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
