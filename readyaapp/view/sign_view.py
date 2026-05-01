@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view,permission_classes
 
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
@@ -140,7 +140,7 @@ class LogoutView(generics.GenericAPIView):
             max_age=0,
             expires=0,
             path="/",
-            secure=False,
+            secure=True,
             httponly=True,
             samesite="None",
             domain=".readya.me",
@@ -153,7 +153,7 @@ class LogoutView(generics.GenericAPIView):
             max_age=0,
             expires=0,
             path="/",
-            secure=False,
+            secure=True,
             httponly=True,
             samesite="None",
             domain=".readya.me",
@@ -188,6 +188,7 @@ class ProfileView(APIView):
 
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def google_auth(request):
     token = request.data.get('token')
 
