@@ -152,7 +152,7 @@ class UploadDocumentView(APIView):
             try:
                 threading.Thread(
                     target=send_email_with_mp3,
-                    args=(email, doc.mp3_file.path),
+                    args=(email, doc.mp3_file.url),
                     daemon=True
                 ).start()
             except Exception:
