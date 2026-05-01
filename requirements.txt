@@ -22,3 +22,4 @@ num2words
 # torch
 # torchaudio
 numpy
+cloudinary
