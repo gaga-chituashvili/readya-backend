@@ -55,12 +55,12 @@ class UploadDocumentView(APIView):
             return Response({"error": "file, text or image is required"}, status=400)
 
         try:
-            # ===== TEXT =====
+           
             if text_content and not file:
                 text = text_content
                 doc.file_type = "text"
 
-            # ===== IMAGE =====
+           
             elif upload_image:
                 doc.upload_image = upload_image
                 doc.file_type = "image"
@@ -69,7 +69,7 @@ class UploadDocumentView(APIView):
                 image_path = Path(doc.upload_image.path)
                 text = extract_text_from_image(str(image_path))
 
-            # ===== PDF / DOCX =====
+          
             else:
                 ext = file.name.lower().split(".")[-1]
 
@@ -93,7 +93,7 @@ class UploadDocumentView(APIView):
             if not text or not text.strip():
                 return Response({"error": "No text extracted"}, status=400)
 
-            # ===== GENERATE AUDIO =====
+            
             data = generate_voice(text)
 
             if not data or "file_path" not in data:
@@ -101,21 +101,23 @@ class UploadDocumentView(APIView):
 
             file_path = data["file_path"]
             filename = data["filename"]
+            word_timestamps = data.get("word_timestamps", [])
 
-            # ===== SAVE TO CLOUDINARY =====
+         
             with open(file_path, "rb") as f:
                 doc.mp3_file.save(filename, File(f), save=False)
 
-            # remove temp file
+           
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-            # ===== SAVE DB =====
+            
             doc.text_content = text
+            doc.word_timestamps = word_timestamps
             doc.status = "done"
             doc.save()
 
-            # ===== EMAIL =====
+            
             try:
                 threading.Thread(
                     target=send_email_with_mp3,
@@ -130,10 +132,13 @@ class UploadDocumentView(APIView):
                 "status": doc.status,
                 "file_type": doc.file_type,
                 "mp3_url": doc.mp3_file.url,
+                "word_timestamps": word_timestamps,
             }, status=201)
 
         except Exception as e:
-            doc.status = "failed"
+            import traceback
+            traceback.print_exc()
+            doc.status = "failed"      
             doc.error_message = str(e)
             doc.save()
 
