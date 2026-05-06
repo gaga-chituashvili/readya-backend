@@ -112,7 +112,7 @@ class UploadDocumentView(APIView):
                 os.remove(file_path)
 
             
-            doc.text_content = text
+            doc.text_content = data.get("original_text", text)
             doc.word_timestamps = word_timestamps
             doc.status = "done"
             doc.save()
