@@ -241,4 +241,5 @@ def generate_voice(text: str, speed: float = 0.92) -> dict:
         "file_path": file_path,
         "filename": filename,
         "word_timestamps": word_timestamps,
+        "original_text": clean_text,
     }
