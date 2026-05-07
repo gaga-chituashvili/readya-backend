@@ -114,18 +114,19 @@ class UploadDocumentView(APIView):
             
             doc.text_content = data.get("original_text", text)
             doc.word_timestamps = word_timestamps
+            doc.sentence_indices = data.get("sentence_indices", [])
             doc.status = "done"
             doc.save()
 
             
-            try:
-                threading.Thread(
-                    target=send_email_with_mp3,
-                    args=(doc.email, doc.mp3_file.url),
-                    daemon=True
-                ).start()
-            except Exception:
-                pass
+            # try:
+            #     threading.Thread(
+            #         target=send_email_with_mp3,
+            #         args=(doc.email, doc.mp3_file.url),
+            #         daemon=True
+            #     ).start()
+            # except Exception:
+            #     pass
 
             return Response({
                 "id": str(doc.id),

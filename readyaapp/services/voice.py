@@ -7,7 +7,6 @@ import tempfile
 import requests
 from num2words import num2words
 from openai import OpenAI
-import re as _re
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +96,9 @@ _PUNCT_MAP = str.maketrans({
 })
 _SUFFIX_PAT = "|".join(_CASE_SUFFIXES)
 
+# წინადადების დამამთავრებელი სიმბოლოები raw text-ში
+_SENTENCE_END_RE = re.compile(r"[.!?…]+$")
+
 def detect_language(text: str) -> str:
     if re.search(r"[\u10D0-\u10FF]", text): return "ka"
     if re.search(r"[\u0400-\u04FF]", text): return "ru"
@@ -137,18 +139,27 @@ def normalize_text(text: str, lang: str) -> str:
     return text
 
 
+def _build_sentence_indices(raw_words: list[str]) -> list[int]:
+    """
+    raw_words — original text-ის სიტყვები სასვენი ნიშნებით.
+    აბრუნებს თითოეული სიტყვის წინადადების index-ს.
+    """
+    sentence_idx = 0
+    result = []
+    for w in raw_words:
+        result.append(sentence_idx)
+        if _SENTENCE_END_RE.search(w):
+            sentence_idx += 1
+    return result
+
+
 def _map_whisper_to_original(
     whisper_words: list,
     original_words: list[str],
 ) -> list[dict]:
-
     clean_whisper = [
-        w
-        for w in whisper_words
-        if re.search(
-            r"[\u10D0-\u10FFa-zA-Z0-9]",
-            w.word,
-        )
+        w for w in whisper_words
+        if re.search(r"[\u10D0-\u10FF\w]", w.word)
     ]
 
     n = len(original_words)
@@ -158,162 +169,20 @@ def _map_whisper_to_original(
         return []
 
     result = []
-
     for i in range(n):
         start_chunk = int((i / n) * m)
+        end_chunk = int(((i + 1) / n) * m) - 1
+        s = max(0, min(start_chunk, m - 1))
+        e = max(s, min(end_chunk, m - 1))
 
-        end_chunk = (
-            int(((i + 1) / n) * m) - 1
-        )
-
-        s = max(
-            0,
-            min(start_chunk, m - 1),
-        )
-
-        e = max(
-            s,
-            min(end_chunk, m - 1),
-        )
-
-        result.append(
-            {
-                "word": original_words[i],
-                "start": round(
-                    clean_whisper[s].start,
-                    3,
-                ),
-                "end": round(
-                    clean_whisper[e].end,
-                    3,
-                ),
-            }
-        )
+        result.append({
+            "word": original_words[i],
+            "start": round(clean_whisper[s].start, 3),
+            "end": round(clean_whisper[e].end, 3),
+        })
 
     return result
 
-
-def _split_sentences(
-    words: list[str],
-) -> list[int]:
-
-    sentence_idx = 0
-
-    result = []
-
-    for w in words:
-        result.append(sentence_idx)
-
-        if re.search(
-            r"[.!?…]+$",
-            w,
-        ):
-            sentence_idx += 1
-
-    return result
-
-
-def generate_voice(
-    text: str,
-    speed: float = 0.92,
-) -> dict:
-
-    cartesia_key = os.getenv(
-        "CARTESIA_API_KEY"
-    )
-
-    if not cartesia_key:
-        raise ValueError(
-            "CARTESIA_API_KEY is not set"
-        )
-
-    lang = detect_language(text)
-
-    clean_text = normalize_text(
-        text,
-        lang,
-    )
-
-    cfg = _VOICE_CONFIG[lang]
-
-    original_words = _re.findall(
-        r"[\u10D0-\u10FFa-zA-Z0-9]+(?:[.,!?…—]+)?",
-        clean_text,
-    )
-
-    logger.debug(
-        "TTS → lang=%s | %s",
-        lang,
-        clean_text[:300],
-    )
-
-    audio_resp = requests.post(
-        "https://api.cartesia.ai/tts/bytes",
-        headers={
-            "Authorization": f"Bearer {cartesia_key}",
-            "Cartesia-Version":
-                "2025-04-16",
-            "Content-Type":
-                "application/json",
-        },
-        json={
-            "model_id":
-                CARTESIA_MODEL_ID,
-            "transcript":
-                clean_text,
-            "language":
-                cfg["language"],
-            "voice": {
-                "mode": "id",
-                "id":
-                    cfg["voice_id"],
-                "speed": speed,
-            },
-            "output_format": {
-                "container": "mp3",
-                "encoding": "mp3",
-                "sample_rate": 44100,
-            },
-        },
-        timeout=60,
-    )
-
-    audio_resp.raise_for_status()
-
-    filename = f"{uuid.uuid4()}.mp3"
-
-    file_path = os.path.join(
-        tempfile.gettempdir(),
-        filename,
-    )
-
-    with open(file_path, "wb") as f:
-        f.write(audio_resp.content)
-
-    word_timestamps = (
-        _get_timestamps_whisper(
-            file_path,
-            lang,
-            original_words,
-        )
-    )
-
-    return {
-        "file_path": file_path,
-
-        "filename": filename,
-
-        "word_timestamps":
-            word_timestamps,
-
-        "original_text":
-            clean_text,
-
-        "sentence_indices":
-            _split_sentences(
-                original_words
-            ),
-    }
 
 def _get_timestamps_whisper(
     file_path: str,
@@ -346,16 +215,6 @@ def _get_timestamps_whisper(
     except Exception as e:
         logger.warning("Whisper alignment failed (non-fatal): %s", e)
         return []
-    
-
-def _split_sentences(words: list[str]) -> list[int]:
-    sentence_idx = 0
-    result = []
-    for w in words:
-        result.append(sentence_idx)
-        if w.endswith((".", "!", "?", "...", "—")):
-            sentence_idx += 1
-    return result
 
 
 def generate_voice(text: str, speed: float = 0.92) -> dict:
@@ -367,7 +226,12 @@ def generate_voice(text: str, speed: float = 0.92) -> dict:
     clean_text = normalize_text(text, lang)
     cfg = _VOICE_CONFIG[lang]
 
-    original_words = _re.findall(r"[\u10D0-\u10FF\w]+", clean_text)
+    # სუფთა სიტყვები timestamps-ისთვის
+    original_words = re.findall(r"[\u10D0-\u10FF\w]+", clean_text)
+
+    # raw სიტყვები წინადადების საზღვრებისთვის (სასვენი ნიშნებით)
+    raw_words = clean_text.split()
+    sentence_indices = _build_sentence_indices_for_clean(original_words, raw_words)
 
     logger.debug("TTS → lang=%s | %s", lang, clean_text[:300])
 
@@ -405,8 +269,25 @@ def generate_voice(text: str, speed: float = 0.92) -> dict:
         "filename": filename,
         "word_timestamps": word_timestamps,
         "original_text": clean_text,
-        "sentence_indices": _split_sentences(original_words)
+        "sentence_indices": sentence_indices,
     }
 
 
+def _build_sentence_indices_for_clean(
+    original_words: list[str],
+    raw_words: list[str],
+) -> list[int]:
+    sentence_idx = 0
+    result = []
+    orig_i = 0
 
+    for raw_w in raw_words:
+        clean = re.sub(r"[^\u10D0-\u10FF\w]", "", raw_w)
+        if clean and orig_i < len(original_words):
+            result.append(sentence_idx)
+            orig_i += 1
+        if _SENTENCE_END_RE.search(raw_w):
+            sentence_idx += 1
+
+    # ზუსტად original_words-ის სიგრძე
+    return result[:len(original_words)]

@@ -17,4 +17,5 @@ def generate_voice(request, doc_id):
         "stream_url": request.build_absolute_uri(f"/stream/{doc.id}/"),
         "words": doc.word_timestamps or [],
         "original_text": doc.text_content or "",
+        "sentence_indices": doc.sentence_indices or [],
     })
