@@ -2,17 +2,16 @@ from django.urls import path
 from readyaapp.view.library_view import DocumentDetailView, UserDocumentsView
 from readyaapp.view.sign_view import CookieTokenRefreshView, LoginView, LogoutView, PasswordResetConfirmView, ProfileView, RegisterView, google_auth,PasswordResetRequestView
 from .views import   home
-from readyaapp.view.upload_view import UploadDocumentView
 from readyaapp.view.streammp3_view import stream_mp3
 from readyaapp.view.payment_view import create_payment_view, check_payment_status, keepz_webhook
 from readyaapp.view.generatevoice_view import generate_voice
 from readyaapp.view.openai_view import chat_ai
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from readyaapp.view.chunk_split import UploadChunkedDocumentView,get_chunk
 
 
 urlpatterns = [
     path('', home, name='home'),
-    path('upload/', UploadDocumentView.as_view(), name='upload_document'),
     path('documents/', UserDocumentsView.as_view(), name='user_documents'),
     path('stream/<uuid:doc_id>/', stream_mp3, name='stream_mp3'),
     path('voice/<uuid:doc_id>/', generate_voice, name='generate_voice'),
@@ -40,6 +39,9 @@ urlpatterns = [
     path("password-reset/", PasswordResetRequestView.as_view(), name="password_reset"),
     path("password-reset-confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("token/refresh/", CookieTokenRefreshView.as_view(), name="token_refresh"),
+
+    path("upload/chunked/", UploadChunkedDocumentView.as_view()),
+    path("document/<uuid:doc_id>/chunk/<int:chunk_index>/", get_chunk),
 
 
 ]

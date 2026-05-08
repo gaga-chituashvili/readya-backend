@@ -140,3 +140,34 @@ class User(AbstractUser):
         if not self.subscription_end:
             return False
         return self.subscription_end > timezone.now()
+    
+
+
+
+class AudioDocumentChunk(models.Model):
+    document = models.ForeignKey(
+        AudioDocument,
+        on_delete=models.CASCADE,
+        related_name="chunks"
+    )
+    index = models.IntegerField()
+    mp3_file = models.FileField(upload_to="uploads/chunks/", null=True, blank=True)
+    word_timestamps = models.JSONField(default=list)
+    sentence_indices = models.JSONField(default=list)
+    status = models.CharField(
+        max_length=20,
+        default="pending",
+        choices=[("pending","Pending"),("done","Done"),("failed","Failed")]
+    )
+
+    class Meta:
+        ordering = ["index"]
+        unique_together = ["document", "index"]
+
+    def delete(self, *args, **kwargs):
+        if self.mp3_file and os.path.isfile(self.mp3_file.path):
+            self.mp3_file.delete(save=False)
+        super().delete(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.document.id} - chunk {self.index} - {self.status}"

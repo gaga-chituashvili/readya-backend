@@ -6,7 +6,8 @@ import tempfile
 
 import requests
 from num2words import num2words
-from openai import OpenAI
+import json
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ _PUNCT_MAP = str.maketrans({
 })
 _SUFFIX_PAT = "|".join(_CASE_SUFFIXES)
 
-# წინადადების დამამთავრებელი სიმბოლოები raw text-ში
+
 _SENTENCE_END_RE = re.compile(r"[.!?…]+$")
 
 def detect_language(text: str) -> str:
@@ -109,7 +110,7 @@ _VOICE_CONFIG = {
     "en": {"language": "en", "voice_id": "f786b574-daa5-4673-aa0c-cbe3e8534c02"},
     "ru": {"language": "ru", "voice_id": "e07c00bc-4134-4eae-9ea4-1a55fb45746b"},
 }
-_WHISPER_LANG = {"ka": None, "en": "en", "ru": "ru"}
+
 CARTESIA_MODEL_ID = "sonic-3"
 
 def normalize_text(text: str, lang: str) -> str:
@@ -139,82 +140,6 @@ def normalize_text(text: str, lang: str) -> str:
     return text
 
 
-def _build_sentence_indices(raw_words: list[str]) -> list[int]:
-    """
-    raw_words — original text-ის სიტყვები სასვენი ნიშნებით.
-    აბრუნებს თითოეული სიტყვის წინადადების index-ს.
-    """
-    sentence_idx = 0
-    result = []
-    for w in raw_words:
-        result.append(sentence_idx)
-        if _SENTENCE_END_RE.search(w):
-            sentence_idx += 1
-    return result
-
-
-def _map_whisper_to_original(
-    whisper_words: list,
-    original_words: list[str],
-) -> list[dict]:
-    clean_whisper = [
-        w for w in whisper_words
-        if re.search(r"[\u10D0-\u10FF\w]", w.word)
-    ]
-
-    n = len(original_words)
-    m = len(clean_whisper)
-
-    if n == 0 or m == 0:
-        return []
-
-    result = []
-    for i in range(n):
-        start_chunk = int((i / n) * m)
-        end_chunk = int(((i + 1) / n) * m) - 1
-        s = max(0, min(start_chunk, m - 1))
-        e = max(s, min(end_chunk, m - 1))
-
-        result.append({
-            "word": original_words[i],
-            "start": round(clean_whisper[s].start, 3),
-            "end": round(clean_whisper[e].end, 3),
-        })
-
-    return result
-
-
-def _get_timestamps_whisper(
-    file_path: str,
-    lang: str,
-    original_words: list[str],
-) -> list[dict]:
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
-        logger.warning("OPENAI_API_KEY not set — skipping timestamps")
-        return []
-
-    client = OpenAI(api_key=openai_key)
-    whisper_lang = _WHISPER_LANG.get(lang, None)
-
-    try:
-        with open(file_path, "rb") as f:
-            response = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=f,
-                language=whisper_lang,
-                response_format="verbose_json",
-                timestamp_granularities=["word"],
-            )
-
-        if not hasattr(response, "words") or not response.words:
-            return []
-
-        return _map_whisper_to_original(list(response.words), original_words)
-
-    except Exception as e:
-        logger.warning("Whisper alignment failed (non-fatal): %s", e)
-        return []
 
 
 def generate_voice(text: str, speed: float = 0.92) -> dict:
@@ -225,18 +150,15 @@ def generate_voice(text: str, speed: float = 0.92) -> dict:
     lang = detect_language(text)
     clean_text = normalize_text(text, lang)
     cfg = _VOICE_CONFIG[lang]
-
-    # სუფთა სიტყვები timestamps-ისთვის
     original_words = re.findall(r"[\u10D0-\u10FF\w]+", clean_text)
-
-    # raw სიტყვები წინადადების საზღვრებისთვის (სასვენი ნიშნებით)
     raw_words = clean_text.split()
     sentence_indices = _build_sentence_indices_for_clean(original_words, raw_words)
 
     logger.debug("TTS → lang=%s | %s", lang, clean_text[:300])
 
-    audio_resp = requests.post(
-        "https://api.cartesia.ai/tts/bytes",
+
+    resp = requests.post(
+        "https://api.cartesia.ai/tts/sse",
         headers={
             "Authorization": f"Bearer {cartesia_key}",
             "Cartesia-Version": "2025-04-16",
@@ -248,30 +170,128 @@ def generate_voice(text: str, speed: float = 0.92) -> dict:
             "language": cfg["language"],
             "voice": {"mode": "id", "id": cfg["voice_id"], "speed": speed},
             "output_format": {
-                "container": "mp3",
-                "encoding": "mp3",
+                "container": "raw",
+                "encoding": "pcm_f32le",
                 "sample_rate": 44100,
             },
+            "add_timestamps": True,
         },
+        stream=True,
         timeout=60,
     )
-    audio_resp.raise_for_status()
+    resp.raise_for_status()
 
+    audio_chunks = []
+    word_timestamps = []
+
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        if line.startswith(b"data: "):
+            line = line[6:]
+        try:
+            event = json.loads(line)
+        except Exception:
+            continue
+
+        if event.get("type") == "timestamps":
+            wt = event.get("word_timestamps", {})
+            words_list = wt.get("words", [])
+            starts = wt.get("start", [])
+            ends = wt.get("end", [])
+            for w, s, e in zip(words_list, starts, ends):
+                word_timestamps.append({
+                    "word": w,
+                    "start": round(s, 3),
+                    "end": round(e, 3),
+                })
+
+        elif event.get("type") == "chunk":
+            audio_b64 = event.get("data", "")
+            if audio_b64:
+                audio_chunks.append(base64.b64decode(audio_b64))
+
+    
+    raw_audio = b"".join(audio_chunks)
     filename = f"{uuid.uuid4()}.mp3"
     file_path = os.path.join(tempfile.gettempdir(), filename)
-    with open(file_path, "wb") as f:
-        f.write(audio_resp.content)
 
-    word_timestamps = _get_timestamps_whisper(file_path, lang, original_words)
+    _pcm_to_mp3(raw_audio, file_path, sample_rate=44100)
+
+    mapped = _map_cartesia_to_original(word_timestamps, original_words)
 
     return {
         "file_path": file_path,
         "filename": filename,
-        "word_timestamps": word_timestamps,
+        "word_timestamps": mapped,
         "original_text": clean_text,
         "sentence_indices": sentence_indices,
     }
 
+
+def _pcm_to_mp3(raw_pcm: bytes, output_path: str, sample_rate: int = 44100):
+    import subprocess
+    import tempfile
+
+    tmp_pcm = tempfile.NamedTemporaryFile(suffix=".pcm", delete=False)
+    tmp_pcm.write(raw_pcm)
+    tmp_pcm.close()
+
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-f", "f32le",
+        "-ar", str(sample_rate),
+        "-ac", "1",
+        "-i", tmp_pcm.name,
+        output_path,
+    ], check=True, capture_output=True)
+
+    os.remove(tmp_pcm.name)
+
+
+def _map_cartesia_to_original(
+    cartesia_words: list[dict],
+    original_words: list[str],
+) -> list[dict]:
+    def norm(s: str) -> str:
+        return re.sub(r"[^\u10D0-\u10FF\w]", "", s).lower()
+
+    cart_norms = [norm(w["word"]) for w in cartesia_words]
+    orig_norms = [norm(w) for w in original_words]
+
+    result = []
+    cart_i = 0
+
+    for i, orig_norm in enumerate(orig_norms):
+        matched = False
+        for delta in range(min(8, len(cartesia_words) - cart_i)):
+            j = cart_i + delta
+            if j < len(cartesia_words) and (
+                orig_norm == cart_norms[j] or
+                orig_norm in cart_norms[j] or
+                cart_norms[j] in orig_norm
+            ):
+                result.append({
+                    "word": original_words[i],
+                    "start": cartesia_words[j]["start"],
+                    "end": cartesia_words[j]["end"],
+                })
+                cart_i = j + 1
+                matched = True
+                break
+
+        if not matched:
+            # fallback — proportional
+            n = len(original_words)
+            m = len(cartesia_words)
+            s = max(0, min(int((i / n) * m), m - 1))
+            result.append({
+                "word": original_words[i],
+                "start": cartesia_words[s]["start"],
+                "end": cartesia_words[s]["end"],
+            })
+
+    return result
 
 def _build_sentence_indices_for_clean(
     original_words: list[str],
@@ -289,5 +309,6 @@ def _build_sentence_indices_for_clean(
         if _SENTENCE_END_RE.search(raw_w):
             sentence_idx += 1
 
-    # ზუსტად original_words-ის სიგრძე
+   
     return result[:len(original_words)]
+
