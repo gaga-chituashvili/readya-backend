@@ -179,10 +179,13 @@ def get_chunk(request, doc_id, chunk_index):
     if chunk.status == "failed":
         return Response({"error": "Chunk generation failed"}, status=500)
 
+    total_chunks = AudioDocumentChunk.objects.filter(document=doc).count()
+
     return Response({
         "chunk_index": chunk_index,
         "audio_url": request.build_absolute_uri(chunk.mp3_file.url),
         "words": chunk.word_timestamps,
         "sentence_indices": chunk.sentence_indices,
         "status": "done",
+        "total_chunks": total_chunks,
     })
