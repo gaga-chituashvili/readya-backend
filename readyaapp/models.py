@@ -4,6 +4,8 @@ import os
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from cloudinary_storage.storage import RawMediaCloudinaryStorage
+
 
 # subscription plan model
 class SubscriptionPlan(models.Model):
@@ -144,6 +146,7 @@ class User(AbstractUser):
 
 
 
+
 class AudioDocumentChunk(models.Model):
     document = models.ForeignKey(
         AudioDocument,
@@ -151,7 +154,12 @@ class AudioDocumentChunk(models.Model):
         related_name="chunks"
     )
     index = models.IntegerField()
-    mp3_file = models.FileField(upload_to="uploads/chunks/", null=True, blank=True)
+    mp3_file = models.FileField(
+        upload_to="uploads/chunks/",
+        null=True,
+        blank=True,
+        storage=RawMediaCloudinaryStorage()
+    )
     word_timestamps = models.JSONField(default=list)
     sentence_indices = models.JSONField(default=list)
     status = models.CharField(
@@ -165,7 +173,7 @@ class AudioDocumentChunk(models.Model):
         unique_together = ["document", "index"]
 
     def delete(self, *args, **kwargs):
-        if self.mp3_file and os.path.isfile(self.mp3_file.path):
+        if self.mp3_file:
             self.mp3_file.delete(save=False)
         super().delete(*args, **kwargs)
 
