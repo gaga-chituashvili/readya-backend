@@ -150,9 +150,9 @@ def generate_voice(text: str, speed: float = 0.92) -> dict:
     lang = detect_language(text)
     clean_text = normalize_text(text, lang)
     cfg = _VOICE_CONFIG[lang]
-    original_words = re.findall(r"[\u10D0-\u10FF\w]+", clean_text)
-    raw_words = clean_text.split()
-    sentence_indices = _build_sentence_indices_for_clean(original_words, raw_words)
+    original_words = clean_text.split()
+    sentence_indices = _build_sentence_indices(original_words)
+    
 
     logger.debug("TTS → lang=%s | %s", lang, clean_text[:300])
 
@@ -281,7 +281,6 @@ def _map_cartesia_to_original(
                 break
 
         if not matched:
-            # fallback — proportional
             n = len(original_words)
             m = len(cartesia_words)
             s = max(0, min(int((i / n) * m), m - 1))
@@ -293,22 +292,11 @@ def _map_cartesia_to_original(
 
     return result
 
-def _build_sentence_indices_for_clean(
-    original_words: list[str],
-    raw_words: list[str],
-) -> list[int]:
+def _build_sentence_indices(words: list[str]) -> list[int]:
     sentence_idx = 0
     result = []
-    orig_i = 0
-
-    for raw_w in raw_words:
-        clean = re.sub(r"[^\u10D0-\u10FF\w]", "", raw_w)
-        if clean and orig_i < len(original_words):
-            result.append(sentence_idx)
-            orig_i += 1
-        if _SENTENCE_END_RE.search(raw_w):
+    for w in words:
+        result.append(sentence_idx)
+        if _SENTENCE_END_RE.search(w):
             sentence_idx += 1
-
-   
-    return result[:len(original_words)]
-
+    return result
