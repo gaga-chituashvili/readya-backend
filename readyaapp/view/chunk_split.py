@@ -1,7 +1,7 @@
 import threading
 
 import os
-
+import re
 from pathlib import Path
 
 from django.core.files import File
@@ -22,8 +22,24 @@ CHUNK_SIZE = 50
 
 
 def split_into_chunks(text: str, size: int) -> list[str]:
-    words = text.split()
-    return [" ".join(words[i:i+size]) for i in range(0, len(words), size)]
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    
+    chunks = []
+    current_words = []
+    
+    for sentence in sentences:
+        sentence_words = sentence.split()
+        
+        if current_words and len(current_words) + len(sentence_words) > size:
+            chunks.append(" ".join(current_words))
+            current_words = sentence_words
+        else:
+            current_words.extend(sentence_words)
+    
+    if current_words:
+        chunks.append(" ".join(current_words))
+    
+    return chunks
 
 
 def generate_and_save_chunk(doc: AudioDocument, chunk_text: str, index: int):
@@ -124,10 +140,10 @@ class UploadChunkedDocumentView(APIView):
             chunks = split_into_chunks(text, CHUNK_SIZE)
             total_chunks = len(chunks)
 
-            # chunk 0 — სინქრონულად
+           
             generate_and_save_chunk(doc, chunks[0], index=0)
 
-            # დანარჩენი — background
+            
             if total_chunks > 1:
                 def generate_remaining():
                     for i, chunk_text in enumerate(chunks[1:], start=1):
