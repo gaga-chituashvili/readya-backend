@@ -98,6 +98,9 @@ class UploadChunkedDocumentView(APIView):
                 upload_image = file
                 file = None
 
+        if not user.has_active_subscription():
+            return Response({"error": "Payment required"}, status=402)
+
         if not file and not text_content and not upload_image:
             return Response({"error": "file, text or image is required"}, status=400)
 
