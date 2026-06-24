@@ -24,3 +24,4 @@ num2words
 numpy
 cloudinary
 django-cloudinary-storage
+dj-database-url
