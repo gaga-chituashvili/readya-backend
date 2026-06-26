@@ -1,13 +1,13 @@
 from django.urls import path
-from readyaapp.view.library_view import DocumentDetailView, UserDocumentsView
-from readyaapp.view.sign_view import CookieTokenRefreshView, LoginView, LogoutView, PasswordResetConfirmView, ProfileView, RegisterView, google_auth,PasswordResetRequestView
+from readyaapp.views.library_view import DocumentDetailView, UserDocumentsView
+from readyaapp.views.sign_view import CookieTokenRefreshView, LoginView, LogoutView, PasswordResetConfirmView, ProfileView, RegisterView, google_auth,PasswordResetRequestView
 from .views import   home
-from readyaapp.view.streammp3_view import stream_mp3
-from readyaapp.view.payment_view import create_payment_view, check_payment_status, keepz_webhook
-from readyaapp.view.generatevoice_view import generate_voice
-from readyaapp.view.openai_view import chat_ai
+from readyaapp.views.streammp3_view import stream_mp3
+from readyaapp.views.payment_view import create_payment_view, check_payment_status, keepz_webhook
+from readyaapp.views.generatevoice_view import generate_voice
+from readyaapp.views.openai_view import chat_ai
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from readyaapp.view.chunk_split import UploadChunkedDocumentView,get_chunk
+from readyaapp.views.chunk_split import UploadChunkedDocumentView,get_chunk
 
 
 urlpatterns = [
