@@ -22,3 +22,6 @@ num2words
 # torch
 # torchaudio
 numpy
+cloudinary
+django-cloudinary-storage
+dj-database-url

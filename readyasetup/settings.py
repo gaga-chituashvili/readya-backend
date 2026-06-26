@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -14,17 +15,14 @@ DEBUG = False
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "readya-backend.onrender.com",
-    "www.readya-backend.onrender.com",
+    "readya.fly.dev",
     "api.readya.me"
 ]
 
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://readya-backend.onrender.com",
-    "https://www.readya-backend.onrender.com",
+    "https://readya.fly.dev",
     "https://api.readya.me",
-
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://readya.me",
@@ -56,12 +54,29 @@ INSTALLED_APPS = [
     'readyaapp',
     'drf_spectacular',
     "rest_framework_simplejwt.token_blacklist",
+    "cloudinary",
+    "cloudinary_storage",
 ]
+
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
+    "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
+    "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
+    "MEDIA_TAG": "media",
+    "INVALID_VIDEO_ERROR_MESSAGE": "Please upload a valid video or audio file.",
+    "EXCLUDE_DELETE_ORPHANED_MEDIA_PATHS": ("uploads/mp3/",),
+}
+
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.RawMediaCloudinaryStorage"
 
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "readyaapp.authentication.CookieJWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
     ),
 }
 
@@ -138,15 +153,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'readyasetup.wsgi.application'
 
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASSWORD'),
-        'HOST': os.environ.get('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT'),
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True,
+    )
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -269,3 +282,9 @@ USE_X_FORWARDED_HOST = True
 SECURE_SSL_REDIRECT = False
 
 os.makedirs(MEDIA_ROOT, exist_ok=True)
+
+
+
+
+
+

@@ -4,6 +4,8 @@ import os
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from cloudinary_storage.storage import RawMediaCloudinaryStorage
+
 
 # subscription plan model
 class SubscriptionPlan(models.Model):
@@ -42,6 +44,8 @@ class AudioDocument(models.Model):
         ("failed", "Failed"),
     )
 
+    
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField()
 
@@ -57,6 +61,15 @@ class AudioDocument(models.Model):
 
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending_payment")
+    sentence_indices = models.JSONField(default=list, blank=True)
+
+    user = models.ForeignKey(
+    "User",
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name="documents"
+    )
 
     payment_status = models.CharField(
         max_length=20,
@@ -129,3 +142,40 @@ class User(AbstractUser):
         if not self.subscription_end:
             return False
         return self.subscription_end > timezone.now()
+    
+
+
+
+
+class AudioDocumentChunk(models.Model):
+    document = models.ForeignKey(
+        AudioDocument,
+        on_delete=models.CASCADE,
+        related_name="chunks"
+    )
+    index = models.IntegerField()
+    mp3_file = models.FileField(
+        upload_to="uploads/chunks/",
+        null=True,
+        blank=True,
+        storage=RawMediaCloudinaryStorage()
+    )
+    word_timestamps = models.JSONField(default=list)
+    sentence_indices = models.JSONField(default=list)
+    status = models.CharField(
+        max_length=20,
+        default="pending",
+        choices=[("pending","Pending"),("done","Done"),("failed","Failed")]
+    )
+
+    class Meta:
+        ordering = ["index"]
+        unique_together = ["document", "index"]
+
+    def delete(self, *args, **kwargs):
+        if self.mp3_file:
+            self.mp3_file.delete(save=False)
+        super().delete(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.document.id} - chunk {self.index} - {self.status}"

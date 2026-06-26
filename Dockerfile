@@ -1,25 +1,30 @@
-FROM python:3.11-slim
+ARG PYTHON_VERSION=3.11-slim
 
+FROM python:${PYTHON_VERSION}
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# install psycopg2 dependencies.
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    tesseract-ocr \
-    tesseract-ocr-kat \
-    libtesseract-dev \
-    libleptonica-dev \
-    build-essential \
+    libpq-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /code
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+WORKDIR /code
 
-WORKDIR /app
+COPY requirements.txt /tmp/requirements.txt
+RUN set -ex && \
+    pip install --upgrade pip && \
+    pip install -r /tmp/requirements.txt && \
+    rm -rf /root/.cache/
+COPY . /code
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+ENV SECRET_KEY "rfcituKDRWTM6OSgwj28MVS8tGHKov7QlsoFYCvC7HlAIOr1eP"
+RUN python manage.py collectstatic --noinput
 
-COPY . .
+EXPOSE 8000
 
-RUN python manage.py collectstatic --noinput 
-
-CMD ["gunicorn", "readyasetup.wsgi:application", "--bind", "0.0.0.0:10000", "--workers", "4", "--threads", "2", "--timeout", "120"]
+CMD ["gunicorn","--bind",":8000","--workers","2","readyasetup.wsgi"]

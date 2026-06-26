@@ -1,18 +1,21 @@
 from django.urls import path
-from readyaapp.view.sign_view import CookieTokenRefreshView, LoginView, LogoutView, PasswordResetConfirmView, ProfileView, RegisterView, google_auth,PasswordResetRequestView
+from readyaapp.views.library_view import DocumentDetailView, UserDocumentsView
+from readyaapp.views.sign_view import CookieTokenRefreshView, LoginView, LogoutView, PasswordResetConfirmView, ProfileView, RegisterView, google_auth,PasswordResetRequestView
 from .views import   home
-from readyaapp.view.upload_view import UploadDocumentView
-from readyaapp.view.streammp3_view import stream_mp3
-from readyaapp.view.payment_view import create_payment_view, check_payment_status, keepz_webhook
-from readyaapp.view.generatevoice_view import generate_voice
-from readyaapp.view.openai_view import chat_ai
+from readyaapp.views.streammp3_view import stream_mp3
+from readyaapp.views.payment_view import create_payment_view, check_payment_status, keepz_webhook
+from readyaapp.views.generatevoice_view import generate_voice
+from readyaapp.views.openai_view import chat_ai
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from readyaapp.views.chunk_split import UploadChunkedDocumentView,get_chunk
+
 
 urlpatterns = [
     path('', home, name='home'),
-    path('upload/', UploadDocumentView.as_view(), name='upload_document'),
+    path('documents/', UserDocumentsView.as_view(), name='user_documents'),
     path('stream/<uuid:doc_id>/', stream_mp3, name='stream_mp3'),
     path('voice/<uuid:doc_id>/', generate_voice, name='generate_voice'),
+    path('document/<uuid:doc_id>/', DocumentDetailView.as_view(), name='document_detail'),
 
     # Payment endpoints
     path('payment/create/', create_payment_view, name='create_payment'),
@@ -23,8 +26,8 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 
     # AI chat endpoints
-    path('chat/<uuid:doc_id>/', chat_ai, name='chat_with_ai'),
-    path('chat/', chat_ai, name='chat_general_outid'),
+    path('api/chat/<uuid:doc_id>/', chat_ai, name='chat_with_ai'),
+    path('api/chat/', chat_ai, name='chat_general_outid'),
    
 
     # Authentication endpoints
@@ -36,4 +39,9 @@ urlpatterns = [
     path("password-reset/", PasswordResetRequestView.as_view(), name="password_reset"),
     path("password-reset-confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("token/refresh/", CookieTokenRefreshView.as_view(), name="token_refresh"),
+
+    path("upload/chunked/", UploadChunkedDocumentView.as_view()),
+    path("document/<uuid:doc_id>/chunk/<int:chunk_index>/", get_chunk),
+
+
 ]
