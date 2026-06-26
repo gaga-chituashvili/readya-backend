@@ -37,38 +37,55 @@ New features, improvements, and optimizations are continuously being added.
 ## 📂 Project Structure
 
 ```
+├── apt.txt                    # System dependencies for Fly.io
 ├── Dockerfile                 # Docker configuration for containerized deployment
-├── README.md                  # Project documentation
-├── google-tts.json            # Google service account key (⚠️ should NOT be in repo)
+├── fly.toml                   # Fly.io deployment configuration
 ├── keys
 │   └── keepz_public.pem       # Public key for Keepz payment encryption
 ├── manage.py                  # Django management entry point
-├── media
-│   └── uploads                # User uploaded files & generated media
+├── README.md                  # Project documentation
 ├── readyaapp                  # Main Django app
 │   ├── __init__.py
-│   ├── __pycache__            # Python compiled cache (auto-generated)
 │   ├── admin.py               # Django admin configuration
 │   ├── apps.py                # App configuration
+│   ├── authentication.py      # Custom JWT authentication backend
 │   ├── migrations             # Database migration files
 │   ├── models.py              # Database models
-│   ├── services               # Business logic (TTS, OCR, email, etc.)
+│   ├── serializers            # DRF serializers
+│   │   └── sign_serializer.py # User registration/login serializer
+│   ├── services               # Business logic (TTS, OCR, email, payments)
+│   │   ├── azure.py
+│   │   ├── docx_reader.py
+│   │   ├── email.py
+│   │   ├── google_cts.py
+│   │   ├── image_reader.py
+│   │   ├── keepz_crypto.py
+│   │   ├── keepz.py
+│   │   ├── markupread.py
+│   │   ├── openai_chat.py
+│   │   ├── payment_service.py
+│   │   ├── pdf_reader.py
+│   │   ├── services.py
+│   │   └── voice.py
 │   ├── tests.py               # Unit tests
 │   ├── urls.py                # App-level routes
-│   └── views.py               # API views & endpoints
-├── readyasetup                # Django project configuration folder
+│   └── views                  # API views split by feature
+│       ├── __init__.py        # Home view
+│       ├── chunk_split.py     # Chunked document upload view
+│       ├── generatevoice_view.py # TTS voice generation view
+│       ├── library_view.py    # User document library view
+│       ├── openai_view.py     # OpenAI chat view
+│       ├── payment_view.py    # Payment processing view
+│       ├── sign_view.py       # Auth views (login/register/profile)
+│       └── streammp3_view.py  # MP3 audio streaming view
+├── readyasetup                # Django project configuration
 │   ├── __init__.py
-│   ├── __pycache__
 │   ├── asgi.py                # ASGI config (async server support)
 │   ├── settings.py            # Main Django settings
 │   ├── urls.py                # Project-level routes
-│   └── wsgi.py                # WSGI config (Gunicorn uses this)
+│   └── wsgi.py                # WSGI config (Gunicorn)
 ├── requirements.txt           # Python dependencies
-├── staticfiles                # Collected static files (for production)
-│   ├── admin                  # Django admin static
-│   └── rest_framework         # DRF static assets
-├── test.py                    # Probably local test script
-└── uploads                    # Additional upload directory
+└── test.py                    # Local test script
 ```
 ## Tech Stack
 
