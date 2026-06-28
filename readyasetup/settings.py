@@ -16,13 +16,11 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "readya.fly.dev",
-    "api.readya.me"
 ]
 
 
 CSRF_TRUSTED_ORIGINS = [
     "https://readya.fly.dev",
-    "https://api.readya.me",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://readya.me",
