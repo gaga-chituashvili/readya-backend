@@ -44,7 +44,6 @@ class RegisterView(generics.CreateAPIView):
             secure=True,
             samesite="None",
             max_age=ACCESS_TOKEN_MAX_AGE,
-            domain=".readya.me"
         )
 
         response.set_cookie(
@@ -54,7 +53,6 @@ class RegisterView(generics.CreateAPIView):
             secure=True,
             samesite="None",
             max_age=REFRESH_TOKEN_MAX_AGE,
-            domain=".readya.me"
         )
 
         return response
@@ -90,7 +88,6 @@ class LoginView(generics.GenericAPIView):
             secure=True,
             samesite="None",
             max_age=ACCESS_TOKEN_MAX_AGE,
-            domain=".readya.me"
         )
 
        
@@ -101,7 +98,6 @@ class LoginView(generics.GenericAPIView):
             secure=True,
             samesite="None",
             max_age=REFRESH_TOKEN_MAX_AGE,
-            domain=".readya.me"
         )
 
         return response
@@ -143,7 +139,6 @@ class LogoutView(generics.GenericAPIView):
             secure=True,
             httponly=True,
             samesite="None",
-            domain=".readya.me",
         )
 
      
@@ -156,7 +151,6 @@ class LogoutView(generics.GenericAPIView):
             secure=True,
             httponly=True,
             samesite="None",
-            domain=".readya.me",
         )
 
         return response
@@ -235,7 +229,6 @@ def google_auth(request):
             secure=True,
             samesite="None",
             max_age=ACCESS_TOKEN_MAX_AGE,
-            domain=".readya.me"
 
         )
 
@@ -246,7 +239,6 @@ def google_auth(request):
             secure=True,
             samesite="None",
             max_age=REFRESH_TOKEN_MAX_AGE,
-            domain=".readya.me"
 
         )
 
@@ -349,6 +341,5 @@ class CookieTokenRefreshView(APIView):
             secure=True,
             samesite="None",
             max_age=ACCESS_TOKEN_MAX_AGE,
-            domain=".readya.me"
         )
         return response
